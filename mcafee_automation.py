@@ -86,45 +86,29 @@ def mcafee_login_automation(email, password, phone_number, runner_id, progress_b
             password_input.fill(password)
             time.sleep(1)
 
-            # Step 3: Click sign in button (human-like) with retry logic
-            logger.info(f"{runner_id}: Clicking sign in button...")
+            # Step 3: Click sign in button (human-like) - Fast retry mechanism
+            logger.info(f"{runner_id}: Clicking sign in button (first click)...")
             sign_in_button = page.locator('button#sign-in-button[aria-label="Sign in"]')
             sign_in_button.wait_for(state="visible", timeout=5000)
-            time.sleep(random.uniform(0.5, 1.5))  # Human-like delay before clicking
+            time.sleep(random.uniform(0.5, 1.5))
             human_like_click(page, sign_in_button)
-            time.sleep(random.uniform(3, 5))
+            time.sleep(2)
 
-            # Step 4: Wait for and click "Enable 2FA" button with retry
-            logger.info(f"{runner_id}: Waiting for Enable 2FA button...")
+            # Wait for sign-in button to appear again (if it does, click again)
+            try:
+                if sign_in_button.is_visible(timeout=3000):
+                    logger.info(f"{runner_id}: Sign-in button reappeared, clicking again...")
+                    time.sleep(random.uniform(0.5, 1.5))
+                    human_like_click(page, sign_in_button)
+                    time.sleep(2)
+            except:
+                pass
+
+            # Step 4: Wait for and click "Enable 2FA" button
+            logger.info(f"{runner_id}: Searching for Enable 2FA button...")
             enable_2fa_button = page.locator('a#ctl00_MainContent_ctl00_m_EnableTwoFactorButtonLabel')
-
-            # Try to find Enable 2FA button, if not found, retry sign-in
-            retry_attempts = 0
-            max_retries = 2
-
-            while retry_attempts < max_retries:
-                try:
-                    enable_2fa_button.wait_for(state="visible", timeout=10000)
-                    logger.success(f"{runner_id}: Enable 2FA button found!")
-                    break
-                except:
-                    retry_attempts += 1
-                    if retry_attempts < max_retries:
-                        logger.warning(f"{runner_id}: Enable 2FA not found, clicking sign-in again (retry {retry_attempts}/{max_retries-1})...")
-                        try:
-                            sign_in_button = page.locator('button#sign-in-button[aria-label="Sign in"]')
-                            if sign_in_button.is_visible(timeout=3000):
-                                time.sleep(random.uniform(0.5, 1.5))
-                                human_like_click(page, sign_in_button)
-                                time.sleep(random.uniform(3, 5))
-                            else:
-                                logger.warning(f"{runner_id}: Sign-in button not visible anymore")
-                        except Exception as e:
-                            logger.warning(f"{runner_id}: Could not retry sign-in: {e}")
-                    else:
-                        logger.error(f"{runner_id}: Enable 2FA button not found after retries")
-                        raise Exception("Enable 2FA button not found")
-
+            enable_2fa_button.wait_for(state="visible", timeout=15000)
+            logger.success(f"{runner_id}: Enable 2FA button found!")
             enable_2fa_button.click()
             time.sleep(3)
 
@@ -163,7 +147,7 @@ def mcafee_login_automation(email, password, phone_number, runner_id, progress_b
             time.sleep(5)
 
             # Step 8: Keep clicking resend until max attempts message appears
-            logger.info(f"{runner_id}: Starting resend loop...")
+            logger.info(f"{runner_id}: Working on account, clicking resend until blocked...")
             resend_count = 0
             max_resends = 100  # Safety limit
 
@@ -172,7 +156,7 @@ def mcafee_login_automation(email, password, phone_number, runner_id, progress_b
                 try:
                     max_attempts_msg = page.locator('p:has-text("You\'ve reached the maximum number of resend attempts")')
                     if max_attempts_msg.is_visible(timeout=1000):
-                        logger.success(f"{runner_id}: Max resend attempts reached! Account DONE.")
+                        logger.success(f"{runner_id}: Account DONE (max resend attempts reached)")
                         savecreated('completed', f"{email}:{password}:{phone_number}")
                         browser.close()
                         if progress_bar:
@@ -181,13 +165,12 @@ def mcafee_login_automation(email, password, phone_number, runner_id, progress_b
                 except:
                     pass
 
-                # Click resend button
+                # Click resend button (silently, no spam logs)
                 try:
                     resend_button = page.locator('button[name="action"][value="resend-code"]')
                     if resend_button.is_visible(timeout=3000):
                         resend_button.click()
                         resend_count += 1
-                        logger.info(f"{runner_id}: Resend clicked ({resend_count} times)")
                         time.sleep(2)
                     else:
                         logger.warning(f"{runner_id}: Resend button not found")
