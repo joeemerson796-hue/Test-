@@ -1,5 +1,6 @@
 import os
 import time
+import random
 from concurrent.futures import ThreadPoolExecutor
 from playwright.sync_api import sync_playwright
 from undetected_playwright import stealth_sync
@@ -9,6 +10,9 @@ from tqdm import tqdm
 
 # Global lock for thread-safe file operations
 file_lock = Lock()
+phone_numbers = []
+phone_index = 0
+phone_lock = Lock()
 
 
 def clear_console():
@@ -19,6 +23,37 @@ def savecreated(filename, message):
     workcard = filename + '.txt'
     with open(workcard, "a", encoding="utf8") as file:
         file.writelines(message + '\n')
+
+
+def get_next_phone():
+    """Get next phone number from the pool in a thread-safe manner"""
+    global phone_index, phone_numbers, phone_lock
+    with phone_lock:
+        if phone_index >= len(phone_numbers):
+            phone_index = 0  # Reset to beginning if we run out
+        phone = phone_numbers[phone_index]
+        phone_index += 1
+        return phone
+
+
+def human_like_click(page, locator):
+    """Simulate human-like click with mouse movement and delays"""
+    # Get element bounding box
+    box = locator.bounding_box()
+    if box:
+        # Random position within the element
+        x = box['x'] + box['width'] * random.uniform(0.3, 0.7)
+        y = box['y'] + box['height'] * random.uniform(0.3, 0.7)
+
+        # Move mouse to element with slight delay
+        page.mouse.move(x, y)
+        time.sleep(random.uniform(0.1, 0.3))
+
+        # Click
+        page.mouse.click(x, y)
+    else:
+        # Fallback to regular click
+        locator.click()
 
 
 def mcafee_login_automation(email, password, phone_number, runner_id, progress_bar):
@@ -51,11 +86,13 @@ def mcafee_login_automation(email, password, phone_number, runner_id, progress_b
             password_input.fill(password)
             time.sleep(1)
 
-            # Step 3: Click sign in button
+            # Step 3: Click sign in button (human-like)
             logger.info(f"{runner_id}: Clicking sign in button...")
             sign_in_button = page.locator('button#sign-in-button[aria-label="Sign in"]')
-            sign_in_button.click()
-            time.sleep(5)
+            sign_in_button.wait_for(state="visible", timeout=5000)
+            time.sleep(random.uniform(0.5, 1.5))  # Human-like delay before clicking
+            human_like_click(page, sign_in_button)
+            time.sleep(random.uniform(3, 5))
 
             # Step 4: Wait for and click "Enable 2FA" button
             logger.info(f"{runner_id}: Waiting for Enable 2FA button...")
@@ -105,13 +142,16 @@ def mcafee_login_automation(email, password, phone_number, runner_id, progress_b
             max_resends = 100  # Safety limit
 
             while resend_count < max_resends:
+                # Check if max attempts message is visible FIRST
                 try:
-                    # Check if max attempts message is visible
                     max_attempts_msg = page.locator('p:has-text("You\'ve reached the maximum number of resend attempts")')
-                    if max_attempts_msg.is_visible(timeout=2000):
-                        logger.success(f"{runner_id}: Max resend attempts reached! Message displayed.")
+                    if max_attempts_msg.is_visible(timeout=1000):
+                        logger.success(f"{runner_id}: Max resend attempts reached! Account DONE.")
                         savecreated('completed', f"{email}:{password}:{phone_number}")
-                        break
+                        browser.close()
+                        if progress_bar:
+                            progress_bar.update(1)
+                        return  # Exit immediately and move to next account
                 except:
                     pass
 
@@ -133,6 +173,8 @@ def mcafee_login_automation(email, password, phone_number, runner_id, progress_b
             logger.success(f"{runner_id}: Automation completed successfully!")
             time.sleep(3)
             browser.close()
+            if progress_bar:
+                progress_bar.update(1)
 
         except Exception as e:
             logger.error(f"{runner_id}: Automation failed - {e}")
@@ -141,9 +183,8 @@ def mcafee_login_automation(email, password, phone_number, runner_id, progress_b
                 browser.close()
             except:
                 pass
-
-    if progress_bar:
-        progress_bar.update(1)
+            if progress_bar:
+                progress_bar.update(1)
 
 
 def run_worker(index, account_data, progress_bar):
@@ -151,9 +192,10 @@ def run_worker(index, account_data, progress_bar):
     Worker function to process a single account
     """
     runner_id = f"Worker-{index + 1}"
-    email, password, phone = account_data.split(':', 2)
+    email, password = account_data.split(':', 1)
+    phone = get_next_phone()  # Get next phone from pool
 
-    logger.info(f"{runner_id}: Starting automation for {email}")
+    logger.info(f"{runner_id}: Starting automation for {email} with phone {phone}")
     mcafee_login_automation(email, password, phone, runner_id, progress_bar)
 
 
@@ -162,40 +204,36 @@ if __name__ == "__main__":
     logger.info("McAfee Login Automation Script")
     logger.info("=" * 50)
 
-    # Option 1: Single account mode
-    mode = input("Run mode? (1: Single account, 2: Multiple accounts from file): ").strip()
-
-    if mode == "1":
-        # Single account mode
-        email = input("Enter email: ").strip()
-        password = input("Enter password: ").strip()
-        phone = input("Enter phone number: ").strip()
-
-        logger.info("Starting single account automation...")
-        mcafee_login_automation(email, password, phone, "Single-Worker", None)
-
-    elif mode == "2":
-        # Multiple accounts mode
-        num_workers = int(input('Number of concurrent workers: '))
-
-        # Load accounts from file (format: email:password:phone)
-        try:
-            with open("accounts.txt", "r", encoding="utf8") as file:
-                accounts = [line.strip() for line in file if line.strip()]
-            logger.info(f"Loaded {len(accounts)} accounts from accounts.txt")
-        except FileNotFoundError:
-            logger.error("'accounts.txt' not found. Create a file with format: email:password:phone")
-            exit(1)
-
-        # Initialize progress bar
-        with tqdm(total=len(accounts), desc="Progress", unit="account") as progress_bar:
-            # Execute workers
-            with ThreadPoolExecutor(max_workers=num_workers) as executor:
-                executor.map(lambda i: run_worker(i, accounts[i], progress_bar), range(len(accounts)))
-
-    else:
-        logger.error("Invalid mode selection")
+    # Load accounts from file (format: email:password)
+    try:
+        with open("accounts.txt", "r", encoding="utf8") as file:
+            accounts = [line.strip() for line in file if line.strip()]
+        logger.info(f"Loaded {len(accounts)} accounts from accounts.txt")
+    except FileNotFoundError:
+        logger.error("'accounts.txt' not found. Create a file with format: email:password")
         exit(1)
+
+    # Load phone numbers from file
+    try:
+        with open("numbers.txt", "r", encoding="utf8") as file:
+            phone_numbers = [line.strip() for line in file if line.strip()]
+        logger.info(f"Loaded {len(phone_numbers)} phone numbers from numbers.txt")
+    except FileNotFoundError:
+        logger.error("'numbers.txt' not found. Create a file with phone numbers (one per line)")
+        exit(1)
+
+    if len(phone_numbers) == 0:
+        logger.error("No phone numbers loaded. Please add numbers to numbers.txt")
+        exit(1)
+
+    # Ask for number of workers
+    num_workers = int(input('Number of concurrent workers: '))
+
+    # Initialize progress bar
+    with tqdm(total=len(accounts), desc="Progress", unit="account") as progress_bar:
+        # Execute workers
+        with ThreadPoolExecutor(max_workers=num_workers) as executor:
+            executor.map(lambda i: run_worker(i, accounts[i], progress_bar), range(len(accounts)))
 
     logger.success("Script finished!")
     input('Press Enter to exit...')

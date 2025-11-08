@@ -2,11 +2,13 @@
 
 ## Features
 - Automates McAfee login and 2FA setup process
-- Supports single account or multiple accounts
 - Multi-threaded worker support for bulk operations
+- Human-like sign-in behavior with mouse movements and random delays
 - Handles dynamic class names using stable selectors
+- Automatic phone number rotation from pool
 - Progress tracking with tqdm
 - Detailed logging with loguru
+- Automatically moves to next account when max resend attempts reached
 
 ## Setup
 
@@ -16,42 +18,40 @@ pip install playwright undetected-playwright loguru tqdm
 playwright install chromium
 ```
 
-2. Prepare your accounts file (for multiple accounts mode):
-   - Create `accounts.txt` in the same directory
-   - Format: `email:password:phone_number` (one per line)
-   - Example:
+2. Prepare your files:
+   - **accounts.txt**: Email and password combinations (format: `email:password`)
      ```
-     ukjzpmsj7061@hotmail.com:Gouda123:770651959
-     user2@example.com:Pass456:770651960
+     ukjzpmsj7061@hotmail.com:Gouda123
+     user2@example.com:Pass456
+     ```
+
+   - **numbers.txt**: Phone numbers (one per line, without country code)
+     ```
+     770651959
+     770651960
+     770651961
      ```
 
 ## Usage
 
-### Single Account Mode
 ```bash
 python mcafee_automation.py
 ```
-- Select option `1`
-- Enter email, password, and phone number when prompted
-
-### Multiple Accounts Mode
-```bash
-python mcafee_automation.py
-```
-- Select option `2`
-- Specify number of concurrent workers
+- Enter number of concurrent workers when prompted
 - Accounts will be loaded from `accounts.txt`
+- Phone numbers will be automatically assigned from `numbers.txt`
 
 ## What the Script Does
 
 1. Navigates to McAfee login page
 2. Enters email and password
-3. Clicks sign in button
+3. Clicks sign in button with **human-like behavior** (mouse movements, random delays)
 4. Waits for "Enable 2FA" button and clicks it
-5. Changes country from Egypt to Kenya
-6. Enters phone number
+5. Changes country from Egypt to Kenya (searches and selects)
+6. Enters phone number from pool
 7. Clicks continue
 8. Repeatedly clicks "Resend" button until max attempts message appears
+9. **Immediately moves to next account** when "You've reached the maximum number of resend attempts" message is displayed
 
 ## Output Files
 
