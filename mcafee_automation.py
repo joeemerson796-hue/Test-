@@ -86,7 +86,7 @@ def mcafee_login_automation(email, password, phone_number, runner_id, progress_b
             password_input.fill(password)
             time.sleep(1)
 
-            # Step 3: Click sign in button (human-like)
+            # Step 3: Click sign in button (human-like) with retry logic
             logger.info(f"{runner_id}: Clicking sign in button...")
             sign_in_button = page.locator('button#sign-in-button[aria-label="Sign in"]')
             sign_in_button.wait_for(state="visible", timeout=5000)
@@ -94,11 +94,37 @@ def mcafee_login_automation(email, password, phone_number, runner_id, progress_b
             human_like_click(page, sign_in_button)
             time.sleep(random.uniform(3, 5))
 
-            # Step 4: Wait for and click "Enable 2FA" button
+            # Step 4: Wait for and click "Enable 2FA" button with retry
             logger.info(f"{runner_id}: Waiting for Enable 2FA button...")
             enable_2fa_button = page.locator('a#ctl00_MainContent_ctl00_m_EnableTwoFactorButtonLabel')
-            enable_2fa_button.wait_for(state="visible", timeout=30000)
-            logger.success(f"{runner_id}: Enable 2FA button found!")
+
+            # Try to find Enable 2FA button, if not found, retry sign-in
+            retry_attempts = 0
+            max_retries = 2
+
+            while retry_attempts < max_retries:
+                try:
+                    enable_2fa_button.wait_for(state="visible", timeout=10000)
+                    logger.success(f"{runner_id}: Enable 2FA button found!")
+                    break
+                except:
+                    retry_attempts += 1
+                    if retry_attempts < max_retries:
+                        logger.warning(f"{runner_id}: Enable 2FA not found, clicking sign-in again (retry {retry_attempts}/{max_retries-1})...")
+                        try:
+                            sign_in_button = page.locator('button#sign-in-button[aria-label="Sign in"]')
+                            if sign_in_button.is_visible(timeout=3000):
+                                time.sleep(random.uniform(0.5, 1.5))
+                                human_like_click(page, sign_in_button)
+                                time.sleep(random.uniform(3, 5))
+                            else:
+                                logger.warning(f"{runner_id}: Sign-in button not visible anymore")
+                        except Exception as e:
+                            logger.warning(f"{runner_id}: Could not retry sign-in: {e}")
+                    else:
+                        logger.error(f"{runner_id}: Enable 2FA button not found after retries")
+                        raise Exception("Enable 2FA button not found")
+
             enable_2fa_button.click()
             time.sleep(3)
 
