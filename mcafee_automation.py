@@ -95,17 +95,20 @@ def mcafee_login_automation(email, password, phone_number, runner_id, progress_b
             time.sleep(2)
 
             # Wait for sign-in button to appear again (if it does, click again)
+            logger.info(f"{runner_id}: Waiting for sign-in button to reappear...")
             try:
                 if sign_in_button.is_visible(timeout=3000):
                     logger.info(f"{runner_id}: Sign-in button reappeared, clicking again...")
                     time.sleep(random.uniform(0.5, 1.5))
                     human_like_click(page, sign_in_button)
                     time.sleep(2)
+                else:
+                    logger.info(f"{runner_id}: Sign-in button did not reappear, continuing...")
             except:
-                pass
+                logger.info(f"{runner_id}: Sign-in button did not reappear, continuing...")
 
-            # Step 4: Wait for and click "Enable 2FA" button
-            logger.info(f"{runner_id}: Searching for Enable 2FA button...")
+            # Step 4: NOW search for Enable 2FA button (only after second click attempt)
+            logger.info(f"{runner_id}: Now searching for Enable 2FA button...")
             enable_2fa_button = page.locator('a#ctl00_MainContent_ctl00_m_EnableTwoFactorButtonLabel')
             enable_2fa_button.wait_for(state="visible", timeout=15000)
             logger.success(f"{runner_id}: Enable 2FA button found!")
@@ -152,11 +155,25 @@ def mcafee_login_automation(email, password, phone_number, runner_id, progress_b
             max_resends = 100  # Safety limit
 
             while resend_count < max_resends:
-                # Check if max attempts message is visible FIRST
+                # Check if max attempts message is visible FIRST (two possible locations)
                 try:
+                    # Check for paragraph message
                     max_attempts_msg = page.locator('p:has-text("You\'ve reached the maximum number of resend attempts")')
                     if max_attempts_msg.is_visible(timeout=1000):
                         logger.success(f"{runner_id}: Account DONE (max resend attempts reached)")
+                        savecreated('completed', f"{email}:{password}:{phone_number}")
+                        browser.close()
+                        if progress_bar:
+                            progress_bar.update(1)
+                        return  # Exit immediately and move to next account
+                except:
+                    pass
+
+                # Also check for alert div with id="prompt-alert"
+                try:
+                    alert_div = page.locator('div#prompt-alert[data-error-code="too-many-sms"]')
+                    if alert_div.is_visible(timeout=1000):
+                        logger.success(f"{runner_id}: Account DONE (alert detected - too many SMS)")
                         savecreated('completed', f"{email}:{password}:{phone_number}")
                         browser.close()
                         if progress_bar:
