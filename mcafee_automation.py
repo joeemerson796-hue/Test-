@@ -92,12 +92,14 @@ def mcafee_login_automation(email, password, phone_number, runner_id, progress_b
             sign_in_button.wait_for(state="visible", timeout=5000)
             time.sleep(random.uniform(0.5, 1.5))
             human_like_click(page, sign_in_button)
-            time.sleep(2)
 
-            # Wait for sign-in button to appear again (if it does, click again)
-            logger.info(f"{runner_id}: Waiting for sign-in button to reappear...")
+            # Wait 11 seconds for sign-in button to reappear
+            logger.info(f"{runner_id}: Waiting 11 seconds for sign-in button to reappear...")
+            time.sleep(11)
+
+            # Check if sign-in button appeared again and click it
             try:
-                if sign_in_button.is_visible(timeout=3000):
+                if sign_in_button.is_visible(timeout=1000):
                     logger.info(f"{runner_id}: Sign-in button reappeared, clicking again...")
                     time.sleep(random.uniform(0.5, 1.5))
                     human_like_click(page, sign_in_button)
