@@ -96,7 +96,7 @@ def mcafee_login_automation(email, password, phone_number, runner_id, progress_b
 
     with sync_playwright() as playwright:
         try:
-            browser = playwright.chromium.launch(headless=False)  # Set to True for headless
+            browser = playwright.chromium.launch(headless=True)  # Headless mode - no visible browser
             context = browser.new_context()
             stealth_sync(context)
             page = context.new_page()
