@@ -12,9 +12,21 @@
 
 ## Setup
 
+### Quick Setup (Recommended)
+
+**For Windows:**
+- Double-click `setup.bat` and wait for installation to complete
+
+**For Linux/Mac:**
+```bash
+bash setup.sh
+```
+
+### Manual Setup
+
 1. Install required dependencies:
 ```bash
-pip install playwright undetected-playwright loguru tqdm
+pip install -r requirements.txt
 playwright install chromium
 ```
 
