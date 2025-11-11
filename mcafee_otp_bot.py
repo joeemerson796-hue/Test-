@@ -24,6 +24,9 @@ last_processed_update_id = 0
 # Track last account index for each user
 user_account_index = defaultdict(int)
 
+# Track current/active account for each user (for /getcode to extract)
+user_current_account = {}
+
 # Track active extraction sessions
 active_extractions = {}
 
@@ -253,8 +256,8 @@ def handle_start_command(chat_id):
     message = """🤖 <b>McAfee OTP Bot</b>
 
 /get - Get new account
-/getcode - Extract McAfee code
-/refresh - Refresh codes
+/getcode - Extract code (current account)
+/refresh - Refresh all accounts
 /myaccounts - Your accounts
 /release &lt;email&gt; - Release account
 /status - System status
@@ -285,11 +288,48 @@ def handle_get_command(chat_id):
         send_telegram_message(chat_id, "❌ Error saving assignment. Check bot permissions.\n\n——————————\n/get\n/getcode")
         return
 
+    # Set this as the current account for the user
+    user_current_account[chat_id] = account
+
     message = f"✅ Account assigned\n📧 <code>{email_part}</code>\n\nUse /getcode to extract OTP\n\n——————————\n/get\n/getcode"
     send_telegram_message(chat_id, message)
 
 def handle_getcode_command(chat_id):
-    """Handle /getcode command - extract McAfee OTP from user's accounts"""
+    """Handle /getcode command - extract McAfee OTP from current account only"""
+    if chat_id in active_extractions:
+        send_telegram_message(chat_id, "⏳ Processing...\n\n——————————\n/get\n/getcode")
+        return
+
+    active_extractions[chat_id] = True
+
+    try:
+        # Check if user has a current account
+        if chat_id not in user_current_account:
+            send_telegram_message(chat_id, "❌ No account. Use /get first\n\n——————————\n/get\n/getcode")
+            return
+
+        account_data = user_current_account[chat_id]
+        email_part, password, refresh_token, client_id, original_line = account_data
+
+        send_telegram_message(chat_id, "⏳ Extracting code...")
+
+        # Extract OTP for current account only
+        otp = extract_otp_for_account(account_data)
+
+        if otp:
+            update_account_otp(original_line, otp)
+            message = f"✅ <code>{email_part}</code>\n🔐 <code>{otp}</code>\n\n——————————\n/get\n/getcode"
+            send_telegram_message(chat_id, message)
+        else:
+            message = f"⚠️ <code>{email_part}</code>\n🔐 No code found\n\n——————————\n/get\n/getcode"
+            send_telegram_message(chat_id, message)
+
+    finally:
+        if chat_id in active_extractions:
+            del active_extractions[chat_id]
+
+def handle_refresh_command(chat_id):
+    """Handle /refresh command - re-extract McAfee codes for ALL assigned accounts"""
     if chat_id in active_extractions:
         send_telegram_message(chat_id, "⏳ Processing...\n\n——————————\n/get\n/getcode")
         return
@@ -325,7 +365,7 @@ def handle_getcode_command(chat_id):
                     results.append(f"⚠️ {account_data[0]}: No code")
 
         if results:
-            message = "🔐 <b>McAfee Codes:</b>\n\n" + "\n".join(results) + "\n\n——————————\n/get\n/getcode"
+            message = "🔄 <b>All Accounts:</b>\n\n" + "\n".join(results) + "\n\n——————————\n/get\n/getcode"
             send_telegram_message(chat_id, message)
         else:
             send_telegram_message(chat_id, "❌ No codes found\n\n——————————\n/get\n/getcode")
@@ -333,11 +373,6 @@ def handle_getcode_command(chat_id):
     finally:
         if chat_id in active_extractions:
             del active_extractions[chat_id]
-
-def handle_refresh_command(chat_id):
-    """Handle /refresh command - re-extract McAfee codes"""
-    # Same as getcode, just different naming
-    handle_getcode_command(chat_id)
 
 def handle_myaccounts_command(chat_id):
     """Handle /myaccounts command"""
