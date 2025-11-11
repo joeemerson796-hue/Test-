@@ -163,8 +163,8 @@ def generate_auth_string(user, token):
     """Generate IMAP auth string"""
     return f"user={user}\1auth=Bearer {token}\1\1"
 
-def extract_amazon_otp_from_last(email_address, access_token):
-    """Extract OTP from last Amazon email"""
+def extract_mcafee_otp_from_last(email_address, access_token):
+    """Extract OTP from last McAfee email"""
     try:
         mail = imaplib.IMAP4_SSL('outlook.office365.com', timeout=10)
         mail.authenticate('XOAUTH2', lambda x: generate_auth_string(email_address, access_token))
@@ -172,7 +172,7 @@ def extract_amazon_otp_from_last(email_address, access_token):
 
         status, messages = mail.search(
             None,
-            '(OR (OR (OR FROM "donotreply@authentication.mcafee.com" FROM "konto-aktualisierung@amazon.de") FROM "account-update@amazon.co.de") FROM "cuenta-actualizada@amazon.es")'
+            'FROM "donotreply@authentication.mcafee.com"'
         )
 
         if status != 'OK' or not messages[0]:
@@ -216,7 +216,7 @@ def extract_otp_for_account(account_data):
     if not access_token:
         return None
 
-    otp = extract_amazon_otp_from_last(email_part, access_token)
+    otp = extract_mcafee_otp_from_last(email_part, access_token)
     return otp
 
 # ========== Telegram Bot Functions ==========
@@ -247,65 +247,44 @@ def get_telegram_updates(offset=None):
 # ========== Command Handlers ==========
 def handle_start_command(chat_id):
     """Handle /start command"""
-    message = """🤖 <b>Amazon OTP Bot</b>
+    message = """🤖 <b>McAfee OTP Bot</b>
 
-/get - Get account + OTP
-/refresh - Refresh OTP
+/get - Get new account
+/getcode - Extract McAfee code
+/refresh - Refresh codes
 /myaccounts - Your accounts
 /release &lt;email&gt; - Release account
 /status - System status
 
 <b>Quick Start:</b>
-1. /get → Get account (exclusively yours)
-2. /refresh → Get new OTPs
+1. /get → Get account
+2. /getcode → Extract code
 
 ——————————
 /get
-/refresh"""
+/getcode"""
     send_telegram_message(chat_id, message)
 
 def handle_get_command(chat_id):
-    """Handle /get command - assign next account to user"""
-    # Check if there's already an active extraction for this user
-    if chat_id in active_extractions:
-        send_telegram_message(chat_id, "⏳ Processing...\n\n——————————\n/get\n/refresh")
+    """Handle /get command - assign next account to user (no extraction)"""
+    account = get_next_available_account(chat_id)
+
+    if not account:
+        send_telegram_message(chat_id, "❌ No available accounts\n\n——————————\n/get\n/getcode")
         return
 
-    active_extractions[chat_id] = True
+    email_part, password, refresh_token, client_id, original_line = account
 
-    try:
-        account = get_next_available_account(chat_id)
+    # Assign account to user
+    assign_account_to_user(chat_id, original_line, email_part)
 
-        if not account:
-            send_telegram_message(chat_id, "❌ No available accounts\n\n——————————\n/get\n/refresh")
-            return
+    message = f"✅ Account assigned\n📧 <code>{email_part}</code>\n\nUse /getcode to extract OTP\n\n——————————\n/get\n/getcode"
+    send_telegram_message(chat_id, message)
 
-        email_part, password, refresh_token, client_id, original_line = account
-
-        # Assign account to user
-        assign_account_to_user(chat_id, original_line, email_part)
-
-        send_telegram_message(chat_id, f"✅ <code>{email_part}</code>\n\n⏳ Extracting OTP...")
-
-        # Extract OTP
-        otp = extract_otp_for_account(account)
-
-        if otp:
-            update_account_otp(original_line, otp)
-            message = f"✅ <code>{email_part}</code>\n🔐 <code>{otp}</code>\n\n——————————\n/get\n/refresh"
-            send_telegram_message(chat_id, message)
-        else:
-            message = f"⚠️ <code>{email_part}</code>\n🔐 No OTP found\n\n——————————\n/get\n/refresh"
-            send_telegram_message(chat_id, message)
-
-    finally:
-        if chat_id in active_extractions:
-            del active_extractions[chat_id]
-
-def handle_refresh_command(chat_id):
-    """Handle /refresh command - refresh OTPs for user's accounts"""
+def handle_getcode_command(chat_id):
+    """Handle /getcode command - extract McAfee OTP from user's accounts"""
     if chat_id in active_extractions:
-        send_telegram_message(chat_id, "⏳ Processing...\n\n——————————\n/get\n/refresh")
+        send_telegram_message(chat_id, "⏳ Processing...\n\n——————————\n/get\n/getcode")
         return
 
     active_extractions[chat_id] = True
@@ -314,8 +293,10 @@ def handle_refresh_command(chat_id):
         user_accounts = get_user_assignments(chat_id)
 
         if not user_accounts:
-            send_telegram_message(chat_id, "❌ No accounts. Use /get first\n\n——————————\n/get\n/refresh")
+            send_telegram_message(chat_id, "❌ No accounts. Use /get first\n\n——————————\n/get\n/getcode")
             return
+
+        send_telegram_message(chat_id, "⏳ Extracting codes...")
 
         accounts = read_accounts()
         results = []
@@ -334,24 +315,29 @@ def handle_refresh_command(chat_id):
                     update_account_otp(user_acc['account'], otp)
                     results.append(f"✅ {account_data[0]}: <code>{otp}</code>")
                 else:
-                    results.append(f"⚠️ {account_data[0]}: No OTP")
+                    results.append(f"⚠️ {account_data[0]}: No code")
 
         if results:
-            message = "🔄 <b>Results:</b>\n\n" + "\n".join(results) + "\n\n——————————\n/get\n/refresh"
+            message = "🔐 <b>McAfee Codes:</b>\n\n" + "\n".join(results) + "\n\n——————————\n/get\n/getcode"
             send_telegram_message(chat_id, message)
         else:
-            send_telegram_message(chat_id, "❌ No OTPs found\n\n——————————\n/get\n/refresh")
+            send_telegram_message(chat_id, "❌ No codes found\n\n——————————\n/get\n/getcode")
 
     finally:
         if chat_id in active_extractions:
             del active_extractions[chat_id]
+
+def handle_refresh_command(chat_id):
+    """Handle /refresh command - re-extract McAfee codes"""
+    # Same as getcode, just different naming
+    handle_getcode_command(chat_id)
 
 def handle_myaccounts_command(chat_id):
     """Handle /myaccounts command"""
     user_accounts = get_user_assignments(chat_id)
 
     if not user_accounts:
-        send_telegram_message(chat_id, "❌ No accounts\n\n——————————\n/get\n/refresh")
+        send_telegram_message(chat_id, "❌ No accounts\n\n——————————\n/get\n/getcode")
         return
 
     message = f"📋 <b>Your Accounts ({len(user_accounts)}):</b>\n\n"
@@ -360,20 +346,20 @@ def handle_myaccounts_command(chat_id):
         message += f"{i}. <code>{acc['email']}</code>\n"
         message += f"   🔐 <code>{acc['last_otp'] or 'N/A'}</code>\n\n"
 
-    message += "——————————\n/get\n/refresh"
+    message += "——————————\n/get\n/getcode"
 
     send_telegram_message(chat_id, message)
 
 def handle_release_command(chat_id, email):
     """Handle /release command"""
     if not email:
-        send_telegram_message(chat_id, "❌ Specify email\n\nExample: /release email@hotmail.com\n\n——————————\n/get\n/refresh")
+        send_telegram_message(chat_id, "❌ Specify email\n\nExample: /release email@hotmail.com\n\n——————————\n/get\n/getcode")
         return
 
     if release_account(chat_id, email):
-        send_telegram_message(chat_id, f"✅ Released <code>{email}</code>\n\n——————————\n/get\n/refresh")
+        send_telegram_message(chat_id, f"✅ Released <code>{email}</code>\n\n——————————\n/get\n/getcode")
     else:
-        send_telegram_message(chat_id, f"❌ <code>{email}</code> not found\n\n——————————\n/get\n/refresh")
+        send_telegram_message(chat_id, f"❌ <code>{email}</code> not found\n\n——————————\n/get\n/getcode")
 
 def handle_status_command(chat_id):
     """Handle /status command"""
@@ -396,7 +382,7 @@ def handle_status_command(chat_id):
     # Show user's personal stats
     user_accounts = get_user_assignments(chat_id)
     message += f"<b>Your Accounts:</b> {len(user_accounts)}\n\n"
-    message += "——————————\n/get\n/refresh"
+    message += "——————————\n/get\n/getcode"
 
     send_telegram_message(chat_id, message)
 
@@ -408,6 +394,8 @@ def handle_message(chat_id, text):
         handle_start_command(chat_id)
     elif text == "/get":
         handle_get_command(chat_id)
+    elif text == "/getcode":
+        handle_getcode_command(chat_id)
     elif text == "/refresh":
         handle_refresh_command(chat_id)
     elif text == "/myaccounts":
@@ -419,13 +407,13 @@ def handle_message(chat_id, text):
     elif text == "/status":
         handle_status_command(chat_id)
     else:
-        send_telegram_message(chat_id, "❌ Unknown command. Use /help\n\n——————————\n/get\n/refresh")
+        send_telegram_message(chat_id, "❌ Unknown command. Use /help\n\n——————————\n/get\n/getcode")
 
 # ========== Main Bot Loop ==========
 def main():
     global last_processed_update_id
 
-    print("🤖 Amazon OTP Bot Started!")
+    print("🤖 McAfee OTP Bot Started!")
     print("=" * 50)
     print("Bot is running and waiting for commands...")
     print("Send /start to your bot to begin!")
