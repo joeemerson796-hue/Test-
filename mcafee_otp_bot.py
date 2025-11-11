@@ -17,7 +17,8 @@ TELEGRAM_TOKEN = "8231519327:AAEIRu7Sm8C_lLGiFvP97DcAeXsMJaCjf04"
 # ===== Global State Management =====
 # Track which accounts are assigned to which users
 assignments_lock = threading.Lock()
-assignments_file = "assignments.json"
+script_dir = os.path.dirname(os.path.abspath(__file__))
+assignments_file = os.path.join(script_dir, "assignments.json")
 last_processed_update_id = 0
 
 # Track last account index for each user
@@ -45,8 +46,10 @@ def save_assignments(assignments):
     try:
         with open(assignments_file, 'w', encoding='utf-8') as f:
             json.dump(assignments, f, indent=2)
+        return True
     except Exception as e:
         print(f"Error saving assignments: {e}")
+        return False
 
 def get_user_assignments(chat_id):
     """Get all accounts assigned to a specific user"""
@@ -74,7 +77,7 @@ def assign_account_to_user(chat_id, account_line, email):
             'last_otp': None,
             'last_otp_time': None
         }
-        save_assignments(assignments)
+        return save_assignments(assignments)
 
 def update_account_otp(account_line, otp):
     """Update the last OTP for an account"""
@@ -276,7 +279,11 @@ def handle_get_command(chat_id):
     email_part, password, refresh_token, client_id, original_line = account
 
     # Assign account to user
-    assign_account_to_user(chat_id, original_line, email_part)
+    success = assign_account_to_user(chat_id, original_line, email_part)
+
+    if not success:
+        send_telegram_message(chat_id, "❌ Error saving assignment. Check bot permissions.\n\n——————————\n/get\n/getcode")
+        return
 
     message = f"✅ Account assigned\n📧 <code>{email_part}</code>\n\nUse /getcode to extract OTP\n\n——————————\n/get\n/getcode"
     send_telegram_message(chat_id, message)
