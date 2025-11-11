@@ -247,42 +247,37 @@ def get_telegram_updates(offset=None):
 # ========== Command Handlers ==========
 def handle_start_command(chat_id):
     """Handle /start command"""
-    message = """🤖 <b>Amazon OTP Bot - Multi-User System</b>
+    message = """🤖 <b>Amazon OTP Bot</b>
 
-📋 <b>Available Commands:</b>
+/get - Get account + OTP
+/refresh - Refresh OTP
+/myaccounts - Your accounts
+/release &lt;email&gt; - Release account
+/status - System status
 
-/get - Get next available account with OTP
-/refresh - Refresh OTP for your assigned accounts
-/myaccounts - Show all your assigned accounts
-/release &lt;email&gt; - Release an account back to pool
-/status - Show overall system status
-/help - Show this help message
+<b>Quick Start:</b>
+1. /get → Get account (exclusively yours)
+2. /refresh → Get new OTPs
 
-<b>How it works:</b>
-1. Use /get to get your next account
-2. Account is exclusively yours - no one else can use it
-3. Use /refresh to get new OTPs for your accounts
-4. Use /release to return an account to the pool
-
-Your accounts stay with you until you release them!"""
+——————————
+/get
+/refresh"""
     send_telegram_message(chat_id, message)
 
 def handle_get_command(chat_id):
     """Handle /get command - assign next account to user"""
     # Check if there's already an active extraction for this user
     if chat_id in active_extractions:
-        send_telegram_message(chat_id, "⏳ Already processing a request. Please wait...")
+        send_telegram_message(chat_id, "⏳ Processing...\n\n——————————\n/get\n/refresh")
         return
 
     active_extractions[chat_id] = True
 
     try:
-        send_telegram_message(chat_id, "🔍 Finding next available account...")
-
         account = get_next_available_account(chat_id)
 
         if not account:
-            send_telegram_message(chat_id, "❌ No available accounts found. All accounts are assigned or file is empty.")
+            send_telegram_message(chat_id, "❌ No available accounts\n\n——————————\n/get\n/refresh")
             return
 
         email_part, password, refresh_token, client_id, original_line = account
@@ -290,23 +285,17 @@ def handle_get_command(chat_id):
         # Assign account to user
         assign_account_to_user(chat_id, original_line, email_part)
 
-        send_telegram_message(chat_id, f"✅ Account assigned to you: <code>{email_part}</code>\n\n⏳ Extracting OTP...")
+        send_telegram_message(chat_id, f"✅ <code>{email_part}</code>\n\n⏳ Extracting OTP...")
 
         # Extract OTP
         otp = extract_otp_for_account(account)
 
         if otp:
             update_account_otp(original_line, otp)
-            message = f"✅ <b>OTP Extracted Successfully!</b>\n\n"
-            message += f"📧 Email: <code>{email_part}</code>\n"
-            message += f"🔐 OTP: <code>{otp}</code>\n\n"
-            message += f"This account is now exclusively yours!"
+            message = f"✅ <code>{email_part}</code>\n🔐 <code>{otp}</code>\n\n——————————\n/get\n/refresh"
             send_telegram_message(chat_id, message)
         else:
-            message = f"⚠️ <b>Account Assigned but No OTP Found</b>\n\n"
-            message += f"📧 Email: <code>{email_part}</code>\n"
-            message += f"🔐 OTP: Not found (check email or try /refresh later)\n\n"
-            message += f"Account is still assigned to you."
+            message = f"⚠️ <code>{email_part}</code>\n🔐 No OTP found\n\n——————————\n/get\n/refresh"
             send_telegram_message(chat_id, message)
 
     finally:
@@ -316,7 +305,7 @@ def handle_get_command(chat_id):
 def handle_refresh_command(chat_id):
     """Handle /refresh command - refresh OTPs for user's accounts"""
     if chat_id in active_extractions:
-        send_telegram_message(chat_id, "⏳ Already processing a request. Please wait...")
+        send_telegram_message(chat_id, "⏳ Processing...\n\n——————————\n/get\n/refresh")
         return
 
     active_extractions[chat_id] = True
@@ -325,10 +314,8 @@ def handle_refresh_command(chat_id):
         user_accounts = get_user_assignments(chat_id)
 
         if not user_accounts:
-            send_telegram_message(chat_id, "❌ You don't have any assigned accounts. Use /get to get one!")
+            send_telegram_message(chat_id, "❌ No accounts. Use /get first\n\n——————————\n/get\n/refresh")
             return
-
-        send_telegram_message(chat_id, f"🔄 Refreshing OTPs for {len(user_accounts)} account(s)...")
 
         accounts = read_accounts()
         results = []
@@ -347,13 +334,13 @@ def handle_refresh_command(chat_id):
                     update_account_otp(user_acc['account'], otp)
                     results.append(f"✅ {account_data[0]}: <code>{otp}</code>")
                 else:
-                    results.append(f"⚠️ {account_data[0]}: No OTP found")
+                    results.append(f"⚠️ {account_data[0]}: No OTP")
 
         if results:
-            message = "<b>🔄 Refresh Results:</b>\n\n" + "\n".join(results)
+            message = "🔄 <b>Results:</b>\n\n" + "\n".join(results) + "\n\n——————————\n/get\n/refresh"
             send_telegram_message(chat_id, message)
         else:
-            send_telegram_message(chat_id, "❌ Could not refresh any OTPs")
+            send_telegram_message(chat_id, "❌ No OTPs found\n\n——————————\n/get\n/refresh")
 
     finally:
         if chat_id in active_extractions:
@@ -364,32 +351,29 @@ def handle_myaccounts_command(chat_id):
     user_accounts = get_user_assignments(chat_id)
 
     if not user_accounts:
-        send_telegram_message(chat_id, "❌ You don't have any assigned accounts.\n\nUse /get to get one!")
+        send_telegram_message(chat_id, "❌ No accounts\n\n——————————\n/get\n/refresh")
         return
 
-    message = f"📋 <b>Your Assigned Accounts ({len(user_accounts)}):</b>\n\n"
+    message = f"📋 <b>Your Accounts ({len(user_accounts)}):</b>\n\n"
 
     for i, acc in enumerate(user_accounts, 1):
-        assigned_time = acc['assigned_at'].split('T')[0] + ' ' + acc['assigned_at'].split('T')[1][:8]
-        message += f"<b>{i}.</b> <code>{acc['email']}</code>\n"
-        message += f"   🔐 Last OTP: <code>{acc['last_otp'] or 'N/A'}</code>\n"
-        message += f"   📅 Assigned: {assigned_time}\n\n"
+        message += f"{i}. <code>{acc['email']}</code>\n"
+        message += f"   🔐 <code>{acc['last_otp'] or 'N/A'}</code>\n\n"
 
-    message += "\n💡 Use /refresh to update OTPs\n"
-    message += "💡 Use /release &lt;email&gt; to release an account"
+    message += "——————————\n/get\n/refresh"
 
     send_telegram_message(chat_id, message)
 
 def handle_release_command(chat_id, email):
     """Handle /release command"""
     if not email:
-        send_telegram_message(chat_id, "❌ Please specify an email to release.\n\nExample: /release example@hotmail.com")
+        send_telegram_message(chat_id, "❌ Specify email\n\nExample: /release email@hotmail.com\n\n——————————\n/get\n/refresh")
         return
 
     if release_account(chat_id, email):
-        send_telegram_message(chat_id, f"✅ Account <code>{email}</code> has been released back to the pool!")
+        send_telegram_message(chat_id, f"✅ Released <code>{email}</code>\n\n——————————\n/get\n/refresh")
     else:
-        send_telegram_message(chat_id, f"❌ Account <code>{email}</code> not found in your assignments.")
+        send_telegram_message(chat_id, f"❌ <code>{email}</code> not found\n\n——————————\n/get\n/refresh")
 
 def handle_status_command(chat_id):
     """Handle /status command"""
@@ -403,16 +387,16 @@ def handle_status_command(chat_id):
     # Count unique users
     unique_users = len(set(data['user_id'] for data in assignments.values()))
 
-    message = f"📊 <b>System Status</b>\n\n"
-    message += f"📦 Total Accounts: {total_accounts}\n"
+    message = f"📊 <b>Status</b>\n\n"
+    message += f"📦 Total: {total_accounts}\n"
     message += f"✅ Assigned: {assigned_accounts}\n"
     message += f"🆓 Available: {available_accounts}\n"
-    message += f"👥 Active Users: {unique_users}\n\n"
+    message += f"👥 Users: {unique_users}\n\n"
 
     # Show user's personal stats
     user_accounts = get_user_assignments(chat_id)
-    message += f"<b>Your Stats:</b>\n"
-    message += f"📋 Your Accounts: {len(user_accounts)}"
+    message += f"<b>Your Accounts:</b> {len(user_accounts)}\n\n"
+    message += "——————————\n/get\n/refresh"
 
     send_telegram_message(chat_id, message)
 
@@ -435,7 +419,7 @@ def handle_message(chat_id, text):
     elif text == "/status":
         handle_status_command(chat_id)
     else:
-        send_telegram_message(chat_id, "❌ Unknown command. Use /help to see available commands.")
+        send_telegram_message(chat_id, "❌ Unknown command. Use /help\n\n——————————\n/get\n/refresh")
 
 # ========== Main Bot Loop ==========
 def main():
