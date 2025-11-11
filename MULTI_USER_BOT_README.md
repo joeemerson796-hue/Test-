@@ -1,8 +1,8 @@
-# Amazon OTP Multi-User Bot
+# McAfee OTP Multi-User Bot
 
 ## Overview
 
-This bot allows multiple users to simultaneously extract Amazon OTPs from their Outlook accounts via Telegram. Each user gets **exclusive access** to their assigned accounts - no conflicts, no duplicates!
+This bot allows multiple users to simultaneously extract McAfee OTPs from their Outlook accounts via Telegram. Each user gets **exclusive access** to their assigned accounts - no conflicts, no duplicates!
 
 ## Key Features
 
@@ -14,8 +14,8 @@ This bot allows multiple users to simultaneously extract Amazon OTPs from their 
 
 ## Files
 
-- `amazon_otp_bot.py` - Main bot script (NEW - multi-user version)
-- `accounts.txt` - Your email accounts (same format as before)
+- `mcafee_otp_bot.py` - Main bot script (multi-user version)
+- `accounts.txt` - Your email accounts (format: email:password:refresh_token:client_id)
 - `assignments.json` - Tracks which accounts belong to which users (auto-created)
 
 ## Setup
@@ -37,7 +37,7 @@ another@outlook.com:password:refresh_token:client_id
 ### 3. Run the Bot
 
 ```bash
-python amazon_otp_bot.py
+python mcafee_otp_bot.py
 ```
 
 The bot will start and wait for commands from Telegram.
@@ -49,8 +49,9 @@ The bot will start and wait for commands from Telegram.
 | Command | Description | Example |
 |---------|-------------|---------|
 | `/start` or `/help` | Show welcome message and commands | `/start` |
-| `/get` | Get next available account with OTP | `/get` |
-| `/refresh` | Refresh OTPs for your assigned accounts | `/refresh` |
+| `/get` | Get next available account (assign only) | `/get` |
+| `/getcode` | Extract McAfee OTP codes | `/getcode` |
+| `/refresh` | Re-extract McAfee codes | `/refresh` |
 | `/myaccounts` | Show all your assigned accounts | `/myaccounts` |
 | `/release <email>` | Release an account back to pool | `/release test@hotmail.com` |
 | `/status` | Show overall system statistics | `/status` |
@@ -61,62 +62,88 @@ The bot will start and wait for commands from Telegram.
 
 ```
 You: /get
-Bot: 🔍 Finding next available account...
-Bot: ✅ Account assigned to you: example@hotmail.com
-     ⏳ Extracting OTP...
-Bot: ✅ OTP Extracted Successfully!
-     📧 Email: example@hotmail.com
-     🔐 OTP: 123456
-     This account is now exclusively yours!
+Bot: ✅ Account assigned
+     📧 example@hotmail.com
+
+     Use /getcode to extract OTP
+
+     ——————————
+     /get
+     /getcode
 ```
 
-### 2. The Account is Now YOURS
+### 2. Extract McAfee Code
+
+```
+You: /getcode
+Bot: ⏳ Extracting codes...
+Bot: 🔐 McAfee Codes:
+
+     ✅ example@hotmail.com: 123456
+
+     ——————————
+     /get
+     /getcode
+```
+
+### 3. The Account is Now YOURS
 
 - ✅ No one else can get this account
 - ✅ It stays assigned to you even if bot restarts
-- ✅ You can refresh OTP anytime
+- ✅ You can extract codes anytime with /getcode
 - ✅ Only you can release it back
 
-### 3. Getting More Accounts
+### 4. Getting More Accounts
 
 ```
 You: /get
-Bot: ✅ Account assigned to you: another@hotmail.com
-     🔐 OTP: 789012
+Bot: ✅ Account assigned
+     📧 another@hotmail.com
 ```
 
 Each time you use `/get`, you get the **next available account** in sequence.
 
-### 4. Refreshing OTPs
+### 5. Refreshing Codes
 
 ```
 You: /refresh
-Bot: 🔄 Refreshing OTPs for 2 account(s)...
-Bot: 🔄 Refresh Results:
+Bot: ⏳ Extracting codes...
+Bot: 🔐 McAfee Codes:
+
      ✅ example@hotmail.com: 456789
      ✅ another@hotmail.com: 987654
+
+     ——————————
+     /get
+     /getcode
 ```
 
-### 5. Checking Your Accounts
+### 6. Checking Your Accounts
 
 ```
 You: /myaccounts
-Bot: 📋 Your Assigned Accounts (2):
+Bot: 📋 Your Accounts (2):
 
      1. example@hotmail.com
-        🔐 Last OTP: 456789
-        📅 Assigned: 2025-11-11 10:30:45
+        🔐 456789
 
      2. another@hotmail.com
-        🔐 Last OTP: 987654
-        📅 Assigned: 2025-11-11 10:35:20
+        🔐 987654
+
+     ——————————
+     /get
+     /getcode
 ```
 
-### 6. Releasing an Account
+### 7. Releasing an Account
 
 ```
 You: /release example@hotmail.com
-Bot: ✅ Account example@hotmail.com has been released back to the pool!
+Bot: ✅ Released example@hotmail.com
+
+     ——————————
+     /get
+     /getcode
 ```
 
 Now others can get this account.
@@ -126,19 +153,25 @@ Now others can get this account.
 ### User A (Chat ID: 111):
 ```
 User A: /get
-Bot → User A: ✅ account1@hotmail.com (OTP: 123456)
+Bot → User A: ✅ account1@hotmail.com
+
+User A: /getcode
+Bot → User A: 🔐 123456
 
 User A: /get
-Bot → User A: ✅ account2@hotmail.com (OTP: 789012)
+Bot → User A: ✅ account2@hotmail.com
 ```
 
 ### User B (Chat ID: 222) - At the Same Time:
 ```
 User B: /get
-Bot → User B: ✅ account3@hotmail.com (OTP: 456789)
+Bot → User B: ✅ account3@hotmail.com
+
+User B: /getcode
+Bot → User B: 🔐 456789
 
 User B: /get
-Bot → User B: ✅ account4@hotmail.com (OTP: 321654)
+Bot → User B: ✅ account4@hotmail.com
 ```
 
 **Result:**
@@ -147,21 +180,15 @@ Bot → User B: ✅ account4@hotmail.com (OTP: 321654)
 - **NO CONFLICTS!** Each user gets different accounts
 - Each user gets the next account in sequence from where they left off
 
-## Key Differences from Old Script
+## Key Features
 
-### Old Script (Original):
-- ❌ Manual batch processing
-- ❌ No user tracking
-- ❌ Can't handle multiple users
-- ❌ Need to manually manage accounts
-- ❌ Interactive console (not automated)
-
-### New Bot (amazon_otp_bot.py):
+### McAfee OTP Bot:
 - ✅ Automatic via Telegram commands
 - ✅ Tracks which accounts belong to which user
 - ✅ Multiple users can use simultaneously
 - ✅ Accounts stay assigned automatically
 - ✅ Fully automated, runs 24/7
+- ✅ Separate commands: /get (assign) and /getcode (extract)
 
 ## Assignment System
 
@@ -190,7 +217,7 @@ The bot uses `assignments.json` to track everything:
 ## Troubleshooting
 
 ### Bot not responding?
-- Check if bot is running: `python amazon_otp_bot.py`
+- Check if bot is running: `python mcafee_otp_bot.py`
 - Check bot token is correct
 - Make sure you sent `/start` first
 
@@ -199,9 +226,9 @@ The bot uses `assignments.json` to track everything:
 - Use `/release <email>` to free up accounts
 - Add more accounts to `accounts.txt`
 
-### OTP not found?
-- The email might not have received Amazon OTP yet
-- Try `/refresh` after a few minutes
+### Code not found?
+- The email might not have received McAfee code yet
+- Try `/getcode` or `/refresh` after a few minutes
 - Check if the account credentials are correct
 
 ## Security Notes
