@@ -1,47 +1,52 @@
 @echo off
 echo ============================================================
-echo McAfee Automation Scripts - Setup
+echo McAfee Automation Script - Setup (Windows)
 echo ============================================================
 echo.
 
-echo [1/4] Checking Python installation...
+echo [1/4] Checking Python...
 python --version
 if %errorlevel% neq 0 (
-    echo ERROR: Python is not installed or not in PATH!
-    echo Please install Python 3.8 or higher from python.org
+    echo.
+    echo ERROR: Python is not installed!
+    echo Download Python from: https://www.python.org/downloads/
+    echo.
     pause
     exit /b 1
 )
-echo Python found!
+echo Python OK!
 echo.
 
-echo [2/4] Installing Python packages...
+echo [2/4] Installing packages...
 echo This may take a few minutes...
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 if %errorlevel% neq 0 (
-    echo ERROR: Failed to install Python packages!
+    echo.
+    echo ERROR: Failed to install packages!
     pause
     exit /b 1
 )
-echo Python packages installed successfully!
+echo Packages installed!
 echo.
 
-echo [3/4] Installing Chromium browser for automation...
-echo This may take a few minutes and requires ~300MB disk space...
+echo [3/4] Installing Chromium browser...
+echo This may take a few minutes (~300MB download)...
 playwright install chromium
 if %errorlevel% neq 0 (
-    echo ERROR: Failed to install Chromium browser!
+    echo.
+    echo ERROR: Failed to install Chromium!
     pause
     exit /b 1
 )
-echo Chromium browser installed successfully!
+echo Chromium installed!
 echo.
 
-echo [4/4] Verifying installation...
-python -c "import playwright; import loguru; import tqdm; import requests; print('All packages imported successfully!')"
+echo [4/4] Testing installation...
+python -c "import playwright; import loguru; import tqdm; print('All packages OK!')"
 if %errorlevel% neq 0 (
-    echo WARNING: Some packages may not have installed correctly!
+    echo.
+    echo WARNING: Package verification failed!
     pause
 ) else (
     echo All packages verified!
@@ -49,12 +54,9 @@ if %errorlevel% neq 0 (
 echo.
 
 echo ============================================================
-echo Setup completed successfully!
+echo Setup Complete!
 echo ============================================================
 echo.
-echo You can now run:
-echo   - mcafee_automation.py (Browser automation)
-echo   - mcafee_otp_bot.py (Telegram OTP bot)
-echo   - generate_key.py (License key generator)
+echo You can now run: python mcafee_automation.py
 echo.
 pause

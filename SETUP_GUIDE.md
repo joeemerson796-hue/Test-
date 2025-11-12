@@ -1,147 +1,112 @@
-# Setup Guide
+# McAfee Automation - Setup Guide (Windows)
 
 ## Quick Setup
 
-### Windows:
-```bash
-# Double-click setup.bat
-# OR run in Command Prompt:
+### Just double-click:
+```
 setup.bat
 ```
 
-### Linux/macOS:
-```bash
-# Make executable and run:
-chmod +x setup.sh
-./setup.sh
-```
-
----
-
-## Manual Setup
-
-If the automatic setup doesn't work, follow these steps:
-
-### Step 1: Install Python Packages
-```bash
-pip install -r requirements.txt
-```
-
-### Step 2: Install Chromium Browser (REQUIRED!)
-```bash
-playwright install chromium
-```
-
-### Step 3: Verify Installation
-```bash
-python -c "import playwright; print('Playwright OK')"
-python -c "import loguru; print('Loguru OK')"
-python -c "import tqdm; print('Tqdm OK')"
-python -c "import requests; print('Requests OK')"
-```
+That's it! Everything will install automatically.
 
 ---
 
 ## What Gets Installed
 
-### Python Packages:
-- **playwright** - Browser automation
-- **undetected-playwright** - Stealth browser automation
-- **loguru** - Beautiful logging
-- **tqdm** - Progress bars
-- **requests** - HTTP requests
-
-### Browser:
-- **Chromium** (~300MB) - Automated browser
+1. **playwright** - Browser automation
+2. **undetected-playwright** - Stealth mode
+3. **loguru** - Logging
+4. **tqdm** - Progress bars
+5. **Chromium browser** (~300MB)
 
 ---
 
-## After Setup
+## Manual Setup (if setup.bat doesn't work)
 
-### 1. Run McAfee Automation:
+### Step 1: Install packages
+```bash
+pip install -r requirements.txt
+```
+
+### Step 2: Install Chromium (REQUIRED!)
+```bash
+playwright install chromium
+```
+
+### Step 3: Run the script
 ```bash
 python mcafee_automation.py
-```
-
-### 2. Run OTP Bot:
-```bash
-python mcafee_otp_bot.py
-```
-
-### 3. Generate License Keys:
-```bash
-python generate_key.py
-```
-
----
-
-## Troubleshooting
-
-### Error: "playwright not found"
-```bash
-pip install --upgrade pip
-pip install playwright
-playwright install chromium
-```
-
-### Error: "Browser executable not found"
-```bash
-playwright install chromium
-```
-
-### Error: "Permission denied" (Linux)
-```bash
-chmod +x setup.sh
-./setup.sh
-```
-
-### Error: "pip not recognized"
-```bash
-# Use python -m pip instead:
-python -m pip install -r requirements.txt
 ```
 
 ---
 
 ## System Requirements
 
+- **Windows:** 10 or 11
 - **Python:** 3.8 or higher
 - **Disk Space:** ~500 MB
 - **RAM:** 2 GB minimum
-- **OS:** Windows 10+, Linux, macOS
 
 ---
 
-## Files Needed
+## Files You Need
 
-**For friends (users):**
-- mcafee_automation.py
-- license_system.py
-- accounts.txt
-- numbers.txt
-- requirements.txt
-- setup.bat (Windows) or setup.sh (Linux/macOS)
+Give these to friends:
+- ✅ mcafee_automation.py
+- ✅ license_system.py
+- ✅ accounts.txt (empty template)
+- ✅ numbers.txt (empty template)
+- ✅ requirements.txt
+- ✅ setup.bat
+- ✅ SETUP_GUIDE.md
 
-**Keep for yourself (admin):**
-- generate_key.py
+Keep for yourself:
+- ❌ generate_key.py (only you should have this!)
 
 ---
 
-## Quick Test
+## Troubleshooting
 
-After setup, test if everything works:
+### Error: "Python not found"
+- Install Python from: https://www.python.org/downloads/
+- During install, check "Add Python to PATH"
 
+### Error: "pip not found"
 ```bash
-# Test license system
-python generate_key.py
-
-# Test automation (will ask for license)
-python mcafee_automation.py
-
-# Test OTP bot
-python mcafee_otp_bot.py
+python -m pip install -r requirements.txt
 ```
 
+### Error: "Browser not found"
+```bash
+playwright install chromium
+```
+
+### Error: "Permission denied"
+- Right-click setup.bat → Run as Administrator
+
 ---
 
-**Setup complete!** 🚀
+## First Run
+
+1. Double-click `setup.bat` and wait
+2. Run: `python mcafee_automation.py`
+3. Copy your Hardware ID
+4. Send Hardware ID to script owner
+5. Get license key from owner
+6. Enter license key when prompted
+7. Done! Script is activated
+
+---
+
+## Quick Start for Friends
+
+1. Download all files
+2. Double-click `setup.bat`
+3. Wait for installation (3-5 minutes)
+4. Run: `python mcafee_automation.py`
+5. Get license key from you
+6. Enter key and start using!
+
+---
+
+**That's it!** 🚀
