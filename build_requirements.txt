@@ -1,0 +1,4 @@
+# Build McAfee Automation to EXE
+# Using PyInstaller
+
+pyinstaller>=6.0.0
