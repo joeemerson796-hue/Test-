@@ -6,10 +6,20 @@ import hashlib
 import uuid
 import platform
 import os
+import sys
 import subprocess
 
 # SECRET KEY - Change this to your own secret (keep it private!)
 SECRET_KEY = "McAfee_Automation_2025_Secret_Key_Change_This"
+
+def get_exe_directory():
+    """Get the directory where the EXE or script is located"""
+    if getattr(sys, 'frozen', False):
+        # Running as compiled EXE
+        return os.path.dirname(sys.executable)
+    else:
+        # Running as Python script
+        return os.path.dirname(os.path.abspath(__file__))
 
 def get_hardware_id():
     """
@@ -67,16 +77,16 @@ def validate_license_key(license_key):
 
 def save_license_key(license_key):
     """Save license key to file"""
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    license_file = os.path.join(script_dir, "license.key")
+    exe_dir = get_exe_directory()
+    license_file = os.path.join(exe_dir, "license.key")
 
     with open(license_file, 'w') as f:
         f.write(license_key)
 
 def load_license_key():
     """Load license key from file"""
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    license_file = os.path.join(script_dir, "license.key")
+    exe_dir = get_exe_directory()
+    license_file = os.path.join(exe_dir, "license.key")
 
     if not os.path.exists(license_file):
         return None

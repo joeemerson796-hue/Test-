@@ -1,6 +1,6 @@
 @echo off
 echo ============================================================
-echo Building McAfee Automation to EXE
+echo Building V3.exe
 echo ============================================================
 echo.
 
@@ -16,13 +16,14 @@ echo.
 echo [2/4] Cleaning old builds...
 if exist build rmdir /s /q build
 if exist dist rmdir /s /q dist
+if exist V3.spec del V3.spec
 if exist McAfee_Automation.spec del McAfee_Automation.spec
 echo.
 
 echo [3/4] Building EXE (this may take 3-5 minutes)...
 echo Please wait...
 echo.
-python -m PyInstaller --onefile --console --name "McAfee_Automation" --add-data "license_system.py;." mcafee_automation.py
+python -m PyInstaller --onefile --console --name "V3" --add-data "license_system.py;." mcafee_automation.py
 if %errorlevel% neq 0 (
     echo ERROR: Build failed!
     pause
@@ -39,21 +40,20 @@ echo ============================================================
 echo BUILD COMPLETE!
 echo ============================================================
 echo.
-echo Your EXE file: dist\McAfee_Automation.exe
+echo Your EXE file: dist\V3.exe
 echo Size: ~50-100 MB
 echo.
 echo IMPORTANT: To distribute to friends:
 echo.
 echo 1. Copy these files to a folder:
-echo    - dist\McAfee_Automation.exe
+echo    - dist\V3.exe
 echo    - accounts.txt (empty template)
 echo    - numbers.txt (empty template)
+echo    - setup_for_friends.bat
 echo.
-echo 2. They also need to install:
-echo    - Python 3.8+ (from python.org)
-echo    - Playwright: pip install playwright
-echo    - Browser: playwright install chromium
+echo 2. They run setup_for_friends.bat ONCE
+echo 3. Then use V3.exe forever
 echo.
-echo OR use the portable version (see BUILD_EXE_GUIDE.md)
+echo The license.key will be saved in the same folder as V3.exe
 echo.
 pause
