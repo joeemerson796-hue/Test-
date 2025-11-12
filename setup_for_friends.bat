@@ -26,7 +26,7 @@ echo.
 
 echo [2/2] Downloading Chromium browser (~300MB)...
 echo This may take a few minutes...
-playwright install chromium
+python -m playwright install chromium
 if %errorlevel% neq 0 (
     echo.
     echo ERROR: Failed to install Chromium!

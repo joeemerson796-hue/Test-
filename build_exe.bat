@@ -22,7 +22,7 @@ echo.
 echo [3/4] Building EXE (this may take 3-5 minutes)...
 echo Please wait...
 echo.
-pyinstaller --onefile --console --name "McAfee_Automation" --add-data "license_system.py;." mcafee_automation.py
+python -m PyInstaller --onefile --console --name "McAfee_Automation" --add-data "license_system.py;." mcafee_automation.py
 if %errorlevel% neq 0 (
     echo ERROR: Build failed!
     pause
@@ -32,7 +32,7 @@ echo.
 
 echo [4/4] Installing Playwright browsers for the EXE...
 echo.
-playwright install chromium
+python -m playwright install chromium
 echo.
 
 echo ============================================================
