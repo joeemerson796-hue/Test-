@@ -1,4 +1,13 @@
-playwright
-undetected-playwright
-loguru
-tqdm
+# McAfee Automation & OTP Bot Requirements
+
+# For mcafee_automation.py
+playwright>=1.40.0
+undetected-playwright>=0.3.0
+loguru>=0.7.0
+tqdm>=4.66.0
+
+# For mcafee_otp_bot.py
+requests>=2.31.0
+
+# Note: After installing these packages, run:
+# playwright install chromium
