@@ -23,7 +23,7 @@ echo.
 echo [3/4] Building EXE (this may take 3-5 minutes)...
 echo Please wait...
 echo.
-python -m PyInstaller --onefile --console --name "V3" --add-data "license_system.py;." mcafee_automation.py
+python -m PyInstaller --onefile --console --name "V3" mcafee_automation.py
 if %errorlevel% neq 0 (
     echo ERROR: Build failed!
     pause
@@ -52,8 +52,6 @@ echo    - numbers.txt (empty template)
 echo    - setup_for_friends.bat
 echo.
 echo 2. They run setup_for_friends.bat ONCE
-echo 3. Then use V3.exe forever
-echo.
-echo The license.key will be saved in the same folder as V3.exe
+echo 3. Then use V3.exe forever (no license needed!)
 echo.
 pause

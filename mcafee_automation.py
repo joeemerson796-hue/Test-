@@ -7,7 +7,6 @@ from undetected_playwright import stealth_sync
 from loguru import logger
 from threading import Lock
 from tqdm import tqdm
-from license_system import check_license, activate_license, get_hardware_id
 
 # Global lock for thread-safe file operations
 file_lock = Lock()
@@ -283,61 +282,8 @@ def run_worker(index, account_data, progress_bar):
 
 if __name__ == "__main__":
     clear_console()
-
-    # ===== LICENSE CHECK =====
-    print("=" * 60)
-    print("McAfee Login Automation Script - V3")
-    print("=" * 60)
-    print()
-
-    # Check if license is valid
-    if not check_license():
-        print("❌ LICENSE NOT FOUND OR INVALID!")
-        print()
-        print("This script requires a valid license key to run.")
-        print()
-
-        # Show hardware ID for key generation
-        hardware_id = get_hardware_id()
-        print("Your Hardware ID:")
-        print("-" * 60)
-        print(hardware_id)
-        print("-" * 60)
-        print()
-        print("Send this Hardware ID to the script owner to get a license key.")
-        print()
-
-        # Ask for license key
-        print("If you already have a license key, enter it below:")
-        license_key = input("License Key (or press Enter to exit): ").strip()
-
-        if not license_key:
-            print()
-            print("Exiting...")
-            exit(1)
-
-        # Try to activate
-        print()
-        print("Activating license...")
-        if activate_license(license_key):
-            print("✅ LICENSE ACTIVATED SUCCESSFULLY!")
-            print()
-            print("You can now use the script. Restarting...")
-            print()
-            time.sleep(2)
-        else:
-            print("❌ INVALID LICENSE KEY!")
-            print()
-            print("The license key you entered is not valid for this device.")
-            print("Please contact the script owner for a valid key.")
-            print()
-            input("Press Enter to exit...")
-            exit(1)
-
-    # License is valid, continue
     logger.info("McAfee Login Automation Script - V3")
     logger.info("=" * 50)
-    logger.info("✅ License: ACTIVE")
     logger.info(f"Using {NUMBERS_PER_ACCOUNT} numbers per account")
 
     # Load accounts from file (format: email:password)
