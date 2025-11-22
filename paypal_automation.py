@@ -132,7 +132,7 @@ def process_paypal_signup(account_email, full_name, phone_number, password):
             # Step 4: Click Get Started
             logger.info("Clicking Get Started...")
             try:
-                get_started_btn = page.locator('a.account-selection-card-cta:has-text("Get Started")')
+                get_started_btn = page.get_by_role("link", name="Get a Business Account").first
                 get_started_btn.wait_for(state="visible", timeout=10000)
                 get_started_btn.click()
                 page.wait_for_timeout(5000)
