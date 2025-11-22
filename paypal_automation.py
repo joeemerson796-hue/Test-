@@ -141,6 +141,45 @@ def process_paypal_signup(account_email, full_name, phone_number, password):
                 browser.close()
                 return False
 
+            # Step 4.5: Handle CAPTCHA if it appears
+            logger.info("Checking for CAPTCHA...")
+            try:
+                captcha_element = page.locator('div#captcha__element')
+                if captcha_element.is_visible(timeout=5000):
+                    logger.warning("CAPTCHA detected! Attempting to solve slider...")
+
+                    # Try slider CAPTCHA
+                    slider = page.locator('div.slider')
+                    if slider.is_visible(timeout=3000):
+                        logger.info("Solving slider CAPTCHA...")
+
+                        # Get slider bounding box
+                        slider_box = slider.bounding_box()
+                        if slider_box:
+                            # Drag slider all the way to the right
+                            start_x = slider_box['x'] + slider_box['width'] / 2
+                            start_y = slider_box['y'] + slider_box['height'] / 2
+                            end_x = start_x + 260  # Drag 260 pixels to the right
+
+                            # Perform drag
+                            page.mouse.move(start_x, start_y)
+                            page.mouse.down()
+                            page.wait_for_timeout(200)
+                            page.mouse.move(end_x, start_y, steps=20)
+                            page.wait_for_timeout(200)
+                            page.mouse.up()
+
+                            logger.success("Slider CAPTCHA solved!")
+                            page.wait_for_timeout(3000)
+                    else:
+                        logger.warning("Slider not found, CAPTCHA may need manual solving")
+                        page.wait_for_timeout(5000)
+                else:
+                    logger.info("No CAPTCHA detected")
+            except Exception as e:
+                logger.warning(f"CAPTCHA handling: {e}")
+                page.wait_for_timeout(3000)
+
             # Step 5: Fill in first name
             logger.info(f"Entering first name: {first_name}")
             try:
