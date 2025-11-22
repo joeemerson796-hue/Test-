@@ -5,7 +5,7 @@ import threading
 import requests
 from concurrent.futures import ThreadPoolExecutor
 from loguru import logger
-from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeout
+from undetected_playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeout
 
 # Configuration
 MAX_WORKERS = 1  # Run one at a time for stability
@@ -152,55 +152,32 @@ def process_paypal_signup(account_email, full_name, phone_number, password):
 
     try:
         with sync_playwright() as p:
-            # Launch browser in incognito mode with anti-detection
+            # Launch undetected browser (stealth mode built-in)
             browser = p.chromium.launch(
                 headless=HEADLESS,
-                args=[
-                    '--incognito',
-                    '--disable-blink-features=AutomationControlled',
-                    '--disable-dev-shm-usage',
-                    '--no-sandbox',
-                    '--disable-web-security',
-                    '--disable-features=IsolateOrigins,site-per-process'
-                ]
+                args=['--start-maximized']
             )
 
-            # Create incognito context with realistic settings
+            # Create context (undetected-playwright handles stealth automatically)
             context = browser.new_context(
-                viewport={'width': 1280, 'height': 720},
-                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                locale='en-US',
+                viewport={'width': 1920, 'height': 1080},
+                locale='en-ZA',
                 timezone_id='Africa/Johannesburg',
+                geolocation={'latitude': -26.2041, 'longitude': 28.0473},
                 permissions=['geolocation'],
-                geolocation={'latitude': -26.2041, 'longitude': 28.0473},  # Johannesburg
-                color_scheme='light',
-                accept_downloads=True,
-                ignore_https_errors=True
+                no_viewport=True
             )
 
-            # Add anti-detection scripts
             page = context.new_page()
-            page.add_init_script("""
-                Object.defineProperty(navigator, 'webdriver', {
-                    get: () => undefined
-                });
-
-                window.chrome = {
-                    runtime: {}
-                };
-
-                Object.defineProperty(navigator, 'plugins', {
-                    get: () => [1, 2, 3, 4, 5]
-                });
-
-                Object.defineProperty(navigator, 'languages', {
-                    get: () => ['en-US', 'en']
-                });
-            """)
 
             # Step 1: Go to PayPal ZA home page
             logger.info("Opening PayPal home page...")
-            page.goto("https://www.paypal.com/za/home", wait_until="domcontentloaded", timeout=60000)
+            page.goto("https://www.paypal.com/za/home", wait_until="networkidle", timeout=60000)
+
+            # Simulate human-like behavior
+            page.mouse.move(100, 100)
+            page.wait_for_timeout(1000)
+            page.mouse.move(300, 200)
             page.wait_for_timeout(2000)
 
             # Step 2: Click Sign Up
@@ -238,11 +215,20 @@ def process_paypal_signup(account_email, full_name, phone_number, password):
                 browser.close()
                 return False
 
-            # Step 4.5: Handle CAPTCHA if it appears
-            logger.info("Checking for CAPTCHA...")
+            # Step 4.5: Handle CAPTCHA/Blocking if it appears
+            logger.info("Checking for CAPTCHA or blocking...")
+            page.wait_for_timeout(3000)
+
             try:
-                captcha_element = page.locator('div#captcha__element')
-                if captcha_element.is_visible(timeout=5000):
+                # Check for blocking page
+                if "You have been blocked" in page.content() or "couldn't load the security challenge" in page.content():
+                    logger.error("PayPal blocked the request!")
+                    logger.warning("Please solve the CAPTCHA manually - waiting 60 seconds...")
+                    page.wait_for_timeout(60000)
+
+                # Check for CAPTCHA element
+                captcha_element = page.locator('div#captcha__element, div#captcha, div[id*="captcha"]')
+                if captcha_element.first.is_visible(timeout=3000):
                     logger.warning("CAPTCHA detected! Using YesCaptcha service...")
 
                     # Use YesCaptcha to solve the CAPTCHA
@@ -251,17 +237,14 @@ def process_paypal_signup(account_email, full_name, phone_number, password):
 
                     if solution:
                         logger.success("CAPTCHA solution received!")
-                        # Apply the solution if needed
                         page.wait_for_timeout(5000)
                     else:
-                        logger.warning("CAPTCHA solving failed - waiting 30 seconds for manual solve...")
-                        page.wait_for_timeout(30000)
+                        logger.warning("CAPTCHA solving failed - waiting 60 seconds for manual solve...")
+                        page.wait_for_timeout(60000)
                 else:
-                    logger.info("No CAPTCHA detected")
+                    logger.info("No CAPTCHA or blocking detected")
             except Exception as e:
-                logger.warning(f"CAPTCHA handling error: {e}")
-                logger.warning("Waiting 30 seconds for manual solve...")
-                page.wait_for_timeout(30000)
+                logger.info(f"No blocking/CAPTCHA check: {e}")
 
             # Step 5: Fill in first name
             logger.info(f"Entering first name: {first_name}")
