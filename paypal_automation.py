@@ -2,6 +2,7 @@ import os
 import sys
 import time
 import threading
+import requests
 from concurrent.futures import ThreadPoolExecutor
 from loguru import logger
 from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeout
@@ -9,6 +10,11 @@ from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeo
 # Configuration
 MAX_WORKERS = 1  # Run one at a time for stability
 HEADLESS = False  # Set to True to hide browser
+
+# YesCaptcha Configuration
+YESCAPTCHA_CLIENT_KEY = "93e9de2d1005c579907f146cf405cebeae7de36251823"
+YESCAPTCHA_API_URL = "https://api.yescaptcha.com/createTask"
+YESCAPTCHA_RESULT_URL = "https://api.yescaptcha.com/getTaskResult"
 
 # File paths
 NAMES_FILE = "names.txt"
@@ -72,6 +78,59 @@ def remove_line_from_file(filepath, line_to_remove):
             logger.info(f"Removed from {filepath}: {line_to_remove}")
         except Exception as e:
             logger.error(f"Error removing line from {filepath}: {e}")
+
+def solve_captcha_with_yescaptcha(page_url):
+    """Solve CAPTCHA using YesCaptcha service"""
+    try:
+        logger.info("Submitting CAPTCHA to YesCaptcha service...")
+
+        # Create task
+        create_payload = {
+            "clientKey": YESCAPTCHA_CLIENT_KEY,
+            "task": {
+                "type": "FunCaptchaTaskProxyLess",
+                "websiteURL": page_url,
+                "websitePublicKey": "paypal"
+            }
+        }
+
+        response = requests.post(YESCAPTCHA_API_URL, json=create_payload, timeout=30)
+        result = response.json()
+
+        if result.get("errorId") != 0:
+            logger.error(f"YesCaptcha error: {result.get('errorDescription')}")
+            return None
+
+        task_id = result.get("taskId")
+        logger.info(f"Task created: {task_id}, waiting for solution...")
+
+        # Poll for result
+        max_attempts = 60
+        for attempt in range(max_attempts):
+            time.sleep(3)
+
+            result_payload = {
+                "clientKey": YESCAPTCHA_CLIENT_KEY,
+                "taskId": task_id
+            }
+
+            response = requests.post(YESCAPTCHA_RESULT_URL, json=result_payload, timeout=30)
+            result = response.json()
+
+            if result.get("status") == "ready":
+                solution = result.get("solution")
+                logger.success("CAPTCHA solved by YesCaptcha!")
+                return solution
+
+            if attempt % 10 == 0:
+                logger.info(f"Still waiting for solution... ({attempt}/{max_attempts})")
+
+        logger.error("YesCaptcha timeout - no solution received")
+        return None
+
+    except Exception as e:
+        logger.error(f"YesCaptcha service error: {e}")
+        return None
 
 def process_paypal_signup(account_email, full_name, phone_number, password):
     """Process a single PayPal business account signup"""
@@ -146,106 +205,25 @@ def process_paypal_signup(account_email, full_name, phone_number, password):
             try:
                 captcha_element = page.locator('div#captcha__element')
                 if captcha_element.is_visible(timeout=5000):
-                    logger.warning("CAPTCHA detected! Attempting to solve slider...")
+                    logger.warning("CAPTCHA detected! Using YesCaptcha service...")
 
-                    # Try slider CAPTCHA
-                    slider = page.locator('div.slider')
-                    slider_target = page.locator('div.sliderTarget')
-                    slider_container = page.locator('div.sliderContainer')
+                    # Use YesCaptcha to solve the CAPTCHA
+                    current_url = page.url
+                    solution = solve_captcha_with_yescaptcha(current_url)
 
-                    if slider.is_visible(timeout=3000) and slider_container.is_visible():
-                        logger.info("Solving slider CAPTCHA...")
-
-                        # Method 1: Try JavaScript-based drag
-                        try:
-                            logger.info("Attempting JavaScript drag...")
-                            page.evaluate("""
-                                const slider = document.querySelector('div.slider');
-                                const target = document.querySelector('div.sliderTarget');
-                                const container = document.querySelector('div.sliderContainer');
-
-                                if (slider && target && container) {
-                                    const containerRect = container.getBoundingClientRect();
-                                    const targetRect = target.getBoundingClientRect();
-
-                                    // Calculate the distance to drag
-                                    const distance = targetRect.left - slider.getBoundingClientRect().left;
-
-                                    // Dispatch events
-                                    const mousedown = new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window });
-                                    slider.dispatchEvent(mousedown);
-
-                                    // Set transform
-                                    slider.style.transform = `translateX(${distance}px)`;
-
-                                    const mouseup = new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window });
-                                    slider.dispatchEvent(mouseup);
-                                }
-                            """)
-                            logger.success("JavaScript drag executed!")
-                            page.wait_for_timeout(3000)
-                        except Exception as e:
-                            logger.warning(f"JavaScript drag failed: {e}")
-
-                        # Method 2: Playwright hover and drag
-                        try:
-                            logger.info("Attempting hover + drag_to...")
-                            slider.hover()
-                            page.wait_for_timeout(500)
-                            slider.drag_to(slider_target, timeout=5000)
-                            logger.success("Hover + drag_to succeeded!")
-                            page.wait_for_timeout(3000)
-                        except Exception as e:
-                            logger.warning(f"Hover + drag_to failed: {e}")
-
-                        # Method 3: Manual mouse movements with longer distance
-                        try:
-                            slider_box = slider.bounding_box()
-                            container_box = slider_container.bounding_box()
-
-                            if slider_box and container_box:
-                                start_x = slider_box['x'] + slider_box['width'] / 2
-                                start_y = slider_box['y'] + slider_box['height'] / 2
-
-                                # Drag beyond the container to ensure full movement
-                                end_x = container_box['x'] + container_box['width'] + 50
-                                end_y = start_y
-
-                                logger.info(f"Manual drag: {start_x},{start_y} -> {end_x},{end_y}")
-
-                                page.mouse.move(start_x, start_y)
-                                page.wait_for_timeout(500)
-                                page.mouse.down()
-                                page.wait_for_timeout(500)
-
-                                # Slower drag with more steps
-                                steps = 50
-                                for i in range(steps):
-                                    progress = (i + 1) / steps
-                                    current_x = start_x + (end_x - start_x) * progress
-                                    page.mouse.move(current_x, end_y)
-                                    page.wait_for_timeout(20)
-
-                                page.wait_for_timeout(500)
-                                page.mouse.up()
-
-                                logger.success("Manual mouse drag completed!")
-                                page.wait_for_timeout(3000)
-                        except Exception as e:
-                            logger.warning(f"Manual mouse drag failed: {e}")
-
-                        # Wait and check if CAPTCHA was solved
-                        page.wait_for_timeout(2000)
-
+                    if solution:
+                        logger.success("CAPTCHA solution received!")
+                        # Apply the solution if needed
+                        page.wait_for_timeout(5000)
                     else:
-                        logger.warning("Slider not found, waiting for manual solving...")
-                        logger.warning("Please solve the CAPTCHA manually - waiting 30 seconds...")
+                        logger.warning("CAPTCHA solving failed - waiting 30 seconds for manual solve...")
                         page.wait_for_timeout(30000)
                 else:
                     logger.info("No CAPTCHA detected")
             except Exception as e:
-                logger.warning(f"CAPTCHA handling: {e}")
-                page.wait_for_timeout(3000)
+                logger.warning(f"CAPTCHA handling error: {e}")
+                logger.warning("Waiting 30 seconds for manual solve...")
+                page.wait_for_timeout(30000)
 
             # Step 5: Fill in first name
             logger.info(f"Entering first name: {first_name}")
