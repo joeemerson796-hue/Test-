@@ -150,26 +150,60 @@ def process_paypal_signup(account_email, full_name, phone_number, password):
 
                     # Try slider CAPTCHA
                     slider = page.locator('div.slider')
-                    if slider.is_visible(timeout=3000):
+                    slider_target = page.locator('div.sliderTarget')
+                    slider_container = page.locator('div.sliderContainer')
+
+                    if slider.is_visible(timeout=3000) and slider_container.is_visible():
                         logger.info("Solving slider CAPTCHA...")
 
-                        # Get slider bounding box
+                        # Get bounding boxes
                         slider_box = slider.bounding_box()
-                        if slider_box:
-                            # Drag slider all the way to the right
+                        container_box = slider_container.bounding_box()
+
+                        if slider_box and container_box:
+                            # Calculate start and end positions
                             start_x = slider_box['x'] + slider_box['width'] / 2
                             start_y = slider_box['y'] + slider_box['height'] / 2
-                            end_x = start_x + 260  # Drag 260 pixels to the right
 
-                            # Perform drag
-                            page.mouse.move(start_x, start_y)
-                            page.mouse.down()
-                            page.wait_for_timeout(200)
-                            page.mouse.move(end_x, start_y, steps=20)
-                            page.wait_for_timeout(200)
-                            page.mouse.up()
+                            # Drag to the right edge of container
+                            end_x = container_box['x'] + container_box['width'] - 10
+                            end_y = start_y
 
-                            logger.success("Slider CAPTCHA solved!")
+                            logger.info(f"Dragging from {start_x},{start_y} to {end_x},{end_y}")
+
+                            # Method 1: Mouse drag
+                            try:
+                                page.mouse.move(start_x, start_y)
+                                page.wait_for_timeout(300)
+                                page.mouse.down()
+                                page.wait_for_timeout(300)
+
+                                # Drag in multiple steps for human-like behavior
+                                steps = 30
+                                for i in range(steps):
+                                    progress = (i + 1) / steps
+                                    current_x = start_x + (end_x - start_x) * progress
+                                    page.mouse.move(current_x, end_y)
+                                    page.wait_for_timeout(10)
+
+                                page.wait_for_timeout(300)
+                                page.mouse.up()
+
+                                logger.success("Slider dragged with mouse!")
+                                page.wait_for_timeout(2000)
+                            except Exception as e:
+                                logger.warning(f"Mouse drag failed: {e}")
+
+                            # Method 2: Try drag_to if mouse didn't work
+                            try:
+                                if slider_target.is_visible():
+                                    logger.info("Trying drag_to method...")
+                                    slider.drag_to(slider_target)
+                                    page.wait_for_timeout(2000)
+                                    logger.success("Used drag_to method!")
+                            except Exception as e:
+                                logger.warning(f"drag_to failed: {e}")
+
                             page.wait_for_timeout(3000)
                     else:
                         logger.warning("Slider not found, CAPTCHA may need manual solving")
