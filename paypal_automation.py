@@ -156,58 +156,91 @@ def process_paypal_signup(account_email, full_name, phone_number, password):
                     if slider.is_visible(timeout=3000) and slider_container.is_visible():
                         logger.info("Solving slider CAPTCHA...")
 
-                        # Get bounding boxes
-                        slider_box = slider.bounding_box()
-                        container_box = slider_container.bounding_box()
+                        # Method 1: Try JavaScript-based drag
+                        try:
+                            logger.info("Attempting JavaScript drag...")
+                            page.evaluate("""
+                                const slider = document.querySelector('div.slider');
+                                const target = document.querySelector('div.sliderTarget');
+                                const container = document.querySelector('div.sliderContainer');
 
-                        if slider_box and container_box:
-                            # Calculate start and end positions
-                            start_x = slider_box['x'] + slider_box['width'] / 2
-                            start_y = slider_box['y'] + slider_box['height'] / 2
+                                if (slider && target && container) {
+                                    const containerRect = container.getBoundingClientRect();
+                                    const targetRect = target.getBoundingClientRect();
 
-                            # Drag to the right edge of container
-                            end_x = container_box['x'] + container_box['width'] - 10
-                            end_y = start_y
+                                    // Calculate the distance to drag
+                                    const distance = targetRect.left - slider.getBoundingClientRect().left;
 
-                            logger.info(f"Dragging from {start_x},{start_y} to {end_x},{end_y}")
+                                    // Dispatch events
+                                    const mousedown = new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window });
+                                    slider.dispatchEvent(mousedown);
 
-                            # Method 1: Mouse drag
-                            try:
+                                    // Set transform
+                                    slider.style.transform = `translateX(${distance}px)`;
+
+                                    const mouseup = new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window });
+                                    slider.dispatchEvent(mouseup);
+                                }
+                            """)
+                            logger.success("JavaScript drag executed!")
+                            page.wait_for_timeout(3000)
+                        except Exception as e:
+                            logger.warning(f"JavaScript drag failed: {e}")
+
+                        # Method 2: Playwright hover and drag
+                        try:
+                            logger.info("Attempting hover + drag_to...")
+                            slider.hover()
+                            page.wait_for_timeout(500)
+                            slider.drag_to(slider_target, timeout=5000)
+                            logger.success("Hover + drag_to succeeded!")
+                            page.wait_for_timeout(3000)
+                        except Exception as e:
+                            logger.warning(f"Hover + drag_to failed: {e}")
+
+                        # Method 3: Manual mouse movements with longer distance
+                        try:
+                            slider_box = slider.bounding_box()
+                            container_box = slider_container.bounding_box()
+
+                            if slider_box and container_box:
+                                start_x = slider_box['x'] + slider_box['width'] / 2
+                                start_y = slider_box['y'] + slider_box['height'] / 2
+
+                                # Drag beyond the container to ensure full movement
+                                end_x = container_box['x'] + container_box['width'] + 50
+                                end_y = start_y
+
+                                logger.info(f"Manual drag: {start_x},{start_y} -> {end_x},{end_y}")
+
                                 page.mouse.move(start_x, start_y)
-                                page.wait_for_timeout(300)
+                                page.wait_for_timeout(500)
                                 page.mouse.down()
-                                page.wait_for_timeout(300)
+                                page.wait_for_timeout(500)
 
-                                # Drag in multiple steps for human-like behavior
-                                steps = 30
+                                # Slower drag with more steps
+                                steps = 50
                                 for i in range(steps):
                                     progress = (i + 1) / steps
                                     current_x = start_x + (end_x - start_x) * progress
                                     page.mouse.move(current_x, end_y)
-                                    page.wait_for_timeout(10)
+                                    page.wait_for_timeout(20)
 
-                                page.wait_for_timeout(300)
+                                page.wait_for_timeout(500)
                                 page.mouse.up()
 
-                                logger.success("Slider dragged with mouse!")
-                                page.wait_for_timeout(2000)
-                            except Exception as e:
-                                logger.warning(f"Mouse drag failed: {e}")
+                                logger.success("Manual mouse drag completed!")
+                                page.wait_for_timeout(3000)
+                        except Exception as e:
+                            logger.warning(f"Manual mouse drag failed: {e}")
 
-                            # Method 2: Try drag_to if mouse didn't work
-                            try:
-                                if slider_target.is_visible():
-                                    logger.info("Trying drag_to method...")
-                                    slider.drag_to(slider_target)
-                                    page.wait_for_timeout(2000)
-                                    logger.success("Used drag_to method!")
-                            except Exception as e:
-                                logger.warning(f"drag_to failed: {e}")
+                        # Wait and check if CAPTCHA was solved
+                        page.wait_for_timeout(2000)
 
-                            page.wait_for_timeout(3000)
                     else:
-                        logger.warning("Slider not found, CAPTCHA may need manual solving")
-                        page.wait_for_timeout(5000)
+                        logger.warning("Slider not found, waiting for manual solving...")
+                        logger.warning("Please solve the CAPTCHA manually - waiting 30 seconds...")
+                        page.wait_for_timeout(30000)
                 else:
                     logger.info("No CAPTCHA detected")
             except Exception as e:
