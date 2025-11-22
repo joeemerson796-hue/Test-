@@ -152,13 +152,51 @@ def process_paypal_signup(account_email, full_name, phone_number, password):
 
     try:
         with sync_playwright() as p:
-            # Launch browser
-            browser = p.chromium.launch(headless=HEADLESS)
+            # Launch browser in incognito mode with anti-detection
+            browser = p.chromium.launch(
+                headless=HEADLESS,
+                args=[
+                    '--incognito',
+                    '--disable-blink-features=AutomationControlled',
+                    '--disable-dev-shm-usage',
+                    '--no-sandbox',
+                    '--disable-web-security',
+                    '--disable-features=IsolateOrigins,site-per-process'
+                ]
+            )
+
+            # Create incognito context with realistic settings
             context = browser.new_context(
                 viewport={'width': 1280, 'height': 720},
-                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                locale='en-US',
+                timezone_id='Africa/Johannesburg',
+                permissions=['geolocation'],
+                geolocation={'latitude': -26.2041, 'longitude': 28.0473},  # Johannesburg
+                color_scheme='light',
+                accept_downloads=True,
+                ignore_https_errors=True
             )
+
+            # Add anti-detection scripts
             page = context.new_page()
+            page.add_init_script("""
+                Object.defineProperty(navigator, 'webdriver', {
+                    get: () => undefined
+                });
+
+                window.chrome = {
+                    runtime: {}
+                };
+
+                Object.defineProperty(navigator, 'plugins', {
+                    get: () => [1, 2, 3, 4, 5]
+                });
+
+                Object.defineProperty(navigator, 'languages', {
+                    get: () => ['en-US', 'en']
+                });
+            """)
 
             # Step 1: Go to PayPal ZA home page
             logger.info("Opening PayPal home page...")
