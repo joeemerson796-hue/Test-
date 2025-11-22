@@ -5,7 +5,7 @@ import threading
 import requests
 from concurrent.futures import ThreadPoolExecutor
 from loguru import logger
-from undetected_playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeout
+from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeout
 
 # Configuration
 MAX_WORKERS = 1  # Run one at a time for stability
@@ -152,23 +152,61 @@ def process_paypal_signup(account_email, full_name, phone_number, password):
 
     try:
         with sync_playwright() as p:
-            # Launch undetected browser (stealth mode built-in)
+            # Launch browser with stealth args
             browser = p.chromium.launch(
                 headless=HEADLESS,
-                args=['--start-maximized']
+                args=[
+                    '--disable-blink-features=AutomationControlled',
+                    '--disable-features=IsolateOrigins,site-per-process',
+                    '--disable-site-isolation-trials',
+                    '--start-maximized'
+                ]
             )
 
-            # Create context (undetected-playwright handles stealth automatically)
+            # Create stealth context
             context = browser.new_context(
                 viewport={'width': 1920, 'height': 1080},
+                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
                 locale='en-ZA',
                 timezone_id='Africa/Johannesburg',
                 geolocation={'latitude': -26.2041, 'longitude': 28.0473},
                 permissions=['geolocation'],
-                no_viewport=True
+                no_viewport=True,
+                ignore_https_errors=False
             )
 
             page = context.new_page()
+
+            # Add stealth JavaScript to avoid detection
+            page.add_init_script("""
+                // Overwrite the `navigator.webdriver` property to return undefined
+                Object.defineProperty(navigator, 'webdriver', {
+                    get: () => undefined,
+                });
+
+                // Mock plugins
+                Object.defineProperty(navigator, 'plugins', {
+                    get: () => [1, 2, 3, 4, 5],
+                });
+
+                // Mock languages
+                Object.defineProperty(navigator, 'languages', {
+                    get: () => ['en-US', 'en', 'en-ZA'],
+                });
+
+                // Chrome object
+                window.chrome = {
+                    runtime: {},
+                };
+
+                // Permissions
+                const originalQuery = window.navigator.permissions.query;
+                window.navigator.permissions.query = (parameters) => (
+                    parameters.name === 'notifications' ?
+                        Promise.resolve({ state: Notification.permission }) :
+                        originalQuery(parameters)
+                );
+            """)
 
             # Step 1: Go to PayPal ZA home page
             logger.info("Opening PayPal home page...")
