@@ -115,16 +115,11 @@ def paypal_lesotho_automation(email, password, phone_number, runner_id, progress
                 country_input = page.locator('input[name="combo_t_/paypalAccountData/countryselector"]')
                 country_input.wait_for(state="visible", timeout=15000)
                 country_input.click()
-                time.sleep(1)
-
-                # Clear existing value and type "Lesotho"
-                country_input.fill("")
-                time.sleep(0.5)
-                country_input.type("Lesotho", delay=100)
                 time.sleep(2)
 
-                # Select Lesotho from dropdown options
-                lesotho_option = page.locator('text=Lesotho').first
+                # Click on Lesotho option using data-value attribute
+                lesotho_option = page.locator('div[role="option"][data-value="LS"]')
+                lesotho_option.wait_for(state="visible", timeout=10000)
                 lesotho_option.click()
                 time.sleep(1)
             except Exception as e:
