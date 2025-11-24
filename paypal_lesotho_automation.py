@@ -94,16 +94,20 @@ def process_paypal_lesotho_signup(account_email, phone_number):
 
             page = context.new_page()
 
-            # Add stealth JavaScript to avoid detection
+            # Add comprehensive stealth JavaScript
             page.add_init_script("""
-                // Overwrite the `navigator.webdriver` property to return undefined
+                // Overwrite webdriver
                 Object.defineProperty(navigator, 'webdriver', {
                     get: () => undefined,
                 });
 
-                // Mock plugins
+                // Mock plugins with realistic data
                 Object.defineProperty(navigator, 'plugins', {
-                    get: () => [1, 2, 3, 4, 5],
+                    get: () => [
+                        {name: 'Chrome PDF Plugin', filename: 'internal-pdf-viewer'},
+                        {name: 'Chrome PDF Viewer', filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai'},
+                        {name: 'Native Client', filename: 'internal-nacl-plugin'}
+                    ],
                 });
 
                 // Mock languages
@@ -114,39 +118,106 @@ def process_paypal_lesotho_signup(account_email, phone_number):
                 // Chrome object
                 window.chrome = {
                     runtime: {},
+                    loadTimes: function() {},
+                    csi: function() {},
+                    app: {}
                 };
 
-                // Permissions
+                // Permissions API
                 const originalQuery = window.navigator.permissions.query;
                 window.navigator.permissions.query = (parameters) => (
                     parameters.name === 'notifications' ?
                         Promise.resolve({ state: Notification.permission }) :
                         originalQuery(parameters)
                 );
+
+                // Hide automation
+                delete navigator.__proto__.webdriver;
+
+                // Canvas fingerprint spoofing
+                const originalToDataURL = HTMLCanvasElement.prototype.toDataURL;
+                HTMLCanvasElement.prototype.toDataURL = function() {
+                    if (this.width === 16 && this.height === 16) {
+                        return originalToDataURL.apply(this, arguments);
+                    }
+                    const context = this.getContext('2d');
+                    const shift = {
+                        'r': Math.floor(Math.random() * 10) - 5,
+                        'g': Math.floor(Math.random() * 10) - 5,
+                        'b': Math.floor(Math.random() * 10) - 5,
+                        'a': Math.floor(Math.random() * 10) - 5
+                    };
+                    return originalToDataURL.apply(this, arguments);
+                };
+
+                // WebGL fingerprint spoofing
+                const getParameter = WebGLRenderingContext.prototype.getParameter;
+                WebGLRenderingContext.prototype.getParameter = function(parameter) {
+                    if (parameter === 37445) {
+                        return 'Intel Inc.';
+                    }
+                    if (parameter === 37446) {
+                        return 'Intel Iris OpenGL Engine';
+                    }
+                    return getParameter.call(this, parameter);
+                };
+
+                // Hardware concurrency
+                Object.defineProperty(navigator, 'hardwareConcurrency', {
+                    get: () => 4,
+                });
+
+                // Device memory
+                Object.defineProperty(navigator, 'deviceMemory', {
+                    get: () => 8,
+                });
             """)
 
             # Step 1: Open PayPal Lesotho signup page
             logger.info("Opening PayPal Lesotho signup page...")
             page.goto("https://www.paypal.com/ls/welcome/signup/#/login_info_phone", wait_until="networkidle", timeout=60000)
-            page.wait_for_timeout(3000)
+
+            # Human-like behavior after page load
+            import random
+            page.wait_for_timeout(random.randint(2000, 4000))
+
+            # Random mouse movements
+            for _ in range(3):
+                x = random.randint(100, 800)
+                y = random.randint(100, 600)
+                page.mouse.move(x, y)
+                page.wait_for_timeout(random.randint(300, 800))
+
+            # Random scroll
+            page.evaluate("window.scrollBy(0, {})".format(random.randint(100, 300)))
+            page.wait_for_timeout(random.randint(1000, 2000))
+            page.evaluate("window.scrollTo(0, 0)")
+            page.wait_for_timeout(random.randint(500, 1500))
 
             # Step 2: Select Lesotho from country dropdown
             logger.info("Selecting Lesotho from country dropdown...")
             try:
                 country_input = page.locator('input[name="combo_t_/paypalAccountData/countryselector"]')
                 country_input.wait_for(state="visible", timeout=10000)
-                country_input.click()
-                page.wait_for_timeout(1000)
 
-                # Clear and type Lesotho
+                # Move mouse to element first
+                box = country_input.bounding_box()
+                if box:
+                    page.mouse.move(box['x'] + box['width'] / 2, box['y'] + box['height'] / 2)
+                    page.wait_for_timeout(random.randint(300, 700))
+
+                country_input.click()
+                page.wait_for_timeout(random.randint(800, 1500))
+
+                # Type Lesotho with human-like delays
                 country_input.fill("")
-                page.wait_for_timeout(500)
-                country_input.type("Lesotho", delay=100)
-                page.wait_for_timeout(1000)
+                page.wait_for_timeout(random.randint(300, 600))
+                country_input.type("Lesotho", delay=random.randint(80, 150))
+                page.wait_for_timeout(random.randint(800, 1500))
 
                 # Press Enter to select
                 page.keyboard.press("Enter")
-                page.wait_for_timeout(2000)
+                page.wait_for_timeout(random.randint(1500, 2500))
                 logger.success("Selected Lesotho")
             except Exception as e:
                 logger.error(f"Error selecting Lesotho: {e}")
@@ -170,8 +241,19 @@ def process_paypal_lesotho_signup(account_email, phone_number):
             try:
                 email_input = page.locator('input[type="email"][name="/paypalAccountData/email"]')
                 email_input.wait_for(state="visible", timeout=15000)
-                email_input.fill(account_email)
-                page.wait_for_timeout(1000)
+
+                # Move mouse and click
+                box = email_input.bounding_box()
+                if box:
+                    page.mouse.move(box['x'] + box['width'] / 2, box['y'] + box['height'] / 2)
+                    page.wait_for_timeout(random.randint(300, 700))
+
+                email_input.click()
+                page.wait_for_timeout(random.randint(400, 800))
+
+                # Type email with human delays
+                email_input.type(account_email, delay=random.randint(70, 130))
+                page.wait_for_timeout(random.randint(800, 1500))
             except Exception as e:
                 logger.error(f"Error entering email: {e}")
                 browser.close()
@@ -194,8 +276,19 @@ def process_paypal_lesotho_signup(account_email, phone_number):
             try:
                 phone_input = page.locator('input[type="tel"][id*="paypalAccountData_ph"]')
                 phone_input.wait_for(state="visible", timeout=15000)
-                phone_input.fill(phone_number)
-                page.wait_for_timeout(1000)
+
+                # Move mouse and click
+                box = phone_input.bounding_box()
+                if box:
+                    page.mouse.move(box['x'] + box['width'] / 2, box['y'] + box['height'] / 2)
+                    page.wait_for_timeout(random.randint(300, 700))
+
+                phone_input.click()
+                page.wait_for_timeout(random.randint(400, 800))
+
+                # Type phone with human delays
+                phone_input.type(phone_number, delay=random.randint(70, 130))
+                page.wait_for_timeout(random.randint(800, 1500))
             except Exception as e:
                 logger.error(f"Error entering phone number: {e}")
                 browser.close()
