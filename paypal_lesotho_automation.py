@@ -90,16 +90,24 @@ def paypal_lesotho_automation(email, password, phone_number, runner_id, progress
 
     with sync_playwright() as playwright:
         try:
-            # Launch persistent context with Chrome profile
+            # Launch persistent context with Chrome profile in incognito mode
             context = playwright.chromium.launch_persistent_context(
                 user_data_dir=profile_path,
                 headless=False,
                 channel="chrome",  # Use installed Chrome instead of Chromium
                 args=[
+                    '--incognito',  # Open in incognito mode
                     '--disable-blink-features=AutomationControlled',
                     '--disable-dev-shm-usage',
-                    '--no-sandbox'
-                ]
+                    '--no-sandbox',
+                    '--disable-web-security',
+                    '--disable-features=IsolateOrigins,site-per-process',
+                    '--disable-site-isolation-trials',
+                    '--disable-features=BlockInsecurePrivateNetworkRequests',
+                ],
+                ignore_default_args=['--enable-automation'],
+                viewport={'width': 1920, 'height': 1080},
+                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
             )
             stealth_sync(context)
             page = context.pages[0] if context.pages else context.new_page()
