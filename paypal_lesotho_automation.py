@@ -37,6 +37,31 @@ def get_next_phone():
         return phone
 
 
+def get_chrome_profile_path(profile_number):
+    """Get Chrome profile path based on profile number (1-8)"""
+    # Get user's home directory
+    if os.name == 'nt':  # Windows
+        user_home = os.path.expanduser('~')
+        chrome_data_dir = os.path.join(user_home, 'AppData', 'Local', 'Google', 'Chrome', 'User Data')
+
+        # Profile 1 is "Default", Profile 2-8 are "Profile 1" through "Profile 7"
+        if profile_number == 1:
+            return os.path.join(chrome_data_dir, 'Default')
+        else:
+            return os.path.join(chrome_data_dir, f'Profile {profile_number - 1}')
+    else:  # Linux/Mac
+        user_home = os.path.expanduser('~')
+        if os.uname().sysname == 'Darwin':  # Mac
+            chrome_data_dir = os.path.join(user_home, 'Library', 'Application Support', 'Google', 'Chrome')
+        else:  # Linux
+            chrome_data_dir = os.path.join(user_home, '.config', 'google-chrome')
+
+        if profile_number == 1:
+            return os.path.join(chrome_data_dir, 'Default')
+        else:
+            return os.path.join(chrome_data_dir, f'Profile {profile_number - 1}')
+
+
 def human_like_click(page, locator):
     """Simulate human-like click with mouse movement and delays"""
     # Get element bounding box
@@ -57,18 +82,27 @@ def human_like_click(page, locator):
         locator.click()
 
 
-def paypal_lesotho_automation(email, password, phone_number, runner_id, progress_bar):
+def paypal_lesotho_automation(email, password, phone_number, runner_id, progress_bar, profile_path):
     """
-    Automates PayPal Lesotho signup process
+    Automates PayPal Lesotho signup process using Chrome profile
     """
     url = "https://www.paypal.com/ls/welcome/signup/#/login_info_phone"
 
     with sync_playwright() as playwright:
         try:
-            browser = playwright.chromium.launch(headless=False)  # Visible browser for debugging
-            context = browser.new_context()
+            # Launch persistent context with Chrome profile
+            context = playwright.chromium.launch_persistent_context(
+                user_data_dir=profile_path,
+                headless=False,
+                channel="chrome",  # Use installed Chrome instead of Chromium
+                args=[
+                    '--disable-blink-features=AutomationControlled',
+                    '--disable-dev-shm-usage',
+                    '--no-sandbox'
+                ]
+            )
             stealth_sync(context)
-            page = context.new_page()
+            page = context.pages[0] if context.pages else context.new_page()
 
             logger.info(f"{runner_id}: Navigating to PayPal signup page...")
             page.goto(url, wait_until="domcontentloaded")
@@ -95,7 +129,7 @@ def paypal_lesotho_automation(email, password, phone_number, runner_id, progress
                 time.sleep(1)
             except Exception as e:
                 logger.error(f"{runner_id}: Error selecting Lesotho: {e}")
-                browser.close()
+                context.close()
                 if progress_bar:
                     progress_bar.update(1)
                 return
@@ -110,7 +144,7 @@ def paypal_lesotho_automation(email, password, phone_number, runner_id, progress
                 time.sleep(3)
             except Exception as e:
                 logger.error(f"{runner_id}: Error clicking Get Started: {e}")
-                browser.close()
+                context.close()
                 if progress_bar:
                     progress_bar.update(1)
                 return
@@ -124,7 +158,7 @@ def paypal_lesotho_automation(email, password, phone_number, runner_id, progress
                 time.sleep(1)
             except Exception as e:
                 logger.error(f"{runner_id}: Error entering email: {e}")
-                browser.close()
+                context.close()
                 if progress_bar:
                     progress_bar.update(1)
                 return
@@ -139,7 +173,7 @@ def paypal_lesotho_automation(email, password, phone_number, runner_id, progress
                 time.sleep(3)
             except Exception as e:
                 logger.error(f"{runner_id}: Error clicking Next (after email): {e}")
-                browser.close()
+                context.close()
                 if progress_bar:
                     progress_bar.update(1)
                 return
@@ -154,7 +188,7 @@ def paypal_lesotho_automation(email, password, phone_number, runner_id, progress
                 time.sleep(1)
             except Exception as e:
                 logger.error(f"{runner_id}: Error entering phone number: {e}")
-                browser.close()
+                context.close()
                 if progress_bar:
                     progress_bar.update(1)
                 return
@@ -169,7 +203,7 @@ def paypal_lesotho_automation(email, password, phone_number, runner_id, progress
                 time.sleep(3)
             except Exception as e:
                 logger.error(f"{runner_id}: Error clicking Next (after phone): {e}")
-                browser.close()
+                context.close()
                 if progress_bar:
                     progress_bar.update(1)
                 return
@@ -188,7 +222,7 @@ def paypal_lesotho_automation(email, password, phone_number, runner_id, progress
                     if error_text.is_visible(timeout=1000):
                         logger.success(f"{runner_id}: Account DONE (resend limit reached after {resend_count} resends)")
                         savecreated('completed', f"{email}:{password}:{phone_number}")
-                        browser.close()
+                        context.close()
                         if progress_bar:
                             progress_bar.update(1)
                         return
@@ -214,7 +248,7 @@ def paypal_lesotho_automation(email, password, phone_number, runner_id, progress
 
             logger.success(f"{runner_id}: Automation completed successfully!")
             time.sleep(3)
-            browser.close()
+            context.close()
             if progress_bar:
                 progress_bar.update(1)
 
@@ -222,14 +256,14 @@ def paypal_lesotho_automation(email, password, phone_number, runner_id, progress
             logger.error(f"{runner_id}: Automation failed - {e}")
             savecreated('failed', f"{email}:{password}:{phone_number} - Error: {str(e)}")
             try:
-                browser.close()
+                context.close()
             except:
                 pass
             if progress_bar:
                 progress_bar.update(1)
 
 
-def run_worker(index, account_data, progress_bar):
+def run_worker(index, account_data, progress_bar, num_profiles=8):
     """
     Worker function to process a single account
     """
@@ -237,8 +271,12 @@ def run_worker(index, account_data, progress_bar):
     email, password = account_data.split(':', 1)
     phone = get_next_phone()  # Get next phone from pool
 
-    logger.info(f"{runner_id}: Starting automation for {email} with phone {phone}")
-    paypal_lesotho_automation(email, password, phone, runner_id, progress_bar)
+    # Calculate which profile to use (cycle through 1-8)
+    profile_number = (index % num_profiles) + 1
+    profile_path = get_chrome_profile_path(profile_number)
+
+    logger.info(f"{runner_id}: Starting automation for {email} with phone {phone} using Profile {profile_number}")
+    paypal_lesotho_automation(email, password, phone, runner_id, progress_bar, profile_path)
 
 
 if __name__ == "__main__":
@@ -268,14 +306,22 @@ if __name__ == "__main__":
         logger.error("No phone numbers loaded. Please add numbers to numbers.txt")
         exit(1)
 
-    # Ask for number of workers
-    num_workers = int(input('Number of concurrent workers: '))
+    # Ask for number of workers (max 8 for Chrome profiles)
+    num_workers = int(input('Number of concurrent workers (max 8): '))
+    if num_workers > 8:
+        logger.warning("Maximum 8 workers allowed (one per Chrome profile). Setting to 8.")
+        num_workers = 8
+    elif num_workers < 1:
+        logger.error("Number of workers must be at least 1.")
+        exit(1)
+
+    logger.info(f"Using {num_workers} Chrome profiles for automation")
 
     # Initialize progress bar
     with tqdm(total=len(accounts), desc="Progress", unit="account") as progress_bar:
         # Execute workers
         with ThreadPoolExecutor(max_workers=num_workers) as executor:
-            list(executor.map(lambda i: run_worker(i, accounts[i], progress_bar), range(len(accounts))))
+            list(executor.map(lambda i: run_worker(i, accounts[i], progress_bar, num_workers), range(len(accounts))))
 
     logger.success("Script finished!")
     input('Press Enter to exit...')
