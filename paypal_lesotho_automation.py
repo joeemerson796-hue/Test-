@@ -62,6 +62,62 @@ def get_chrome_profile_path(profile_number):
             return os.path.join(chrome_data_dir, f'Profile {profile_number - 1}')
 
 
+def wait_for_captcha_solve(page, runner_id, max_wait=120):
+    """
+    Detect and wait for hCaptcha to be solved
+    Returns True if captcha was solved or not present, False if timeout
+    """
+    logger.info(f"{runner_id}: Checking for captcha...")
+
+    # Check for hCaptcha iframe
+    captcha_selectors = [
+        'iframe[src*="hcaptcha"]',
+        'iframe[title*="hCaptcha"]',
+        '.h-captcha',
+        '[data-hcaptcha-widget-id]'
+    ]
+
+    captcha_found = False
+    for selector in captcha_selectors:
+        try:
+            if page.locator(selector).count() > 0:
+                captcha_found = True
+                logger.warning(f"{runner_id}: hCaptcha detected! Waiting for it to be solved...")
+                break
+        except:
+            pass
+
+    if not captcha_found:
+        logger.info(f"{runner_id}: No captcha detected, continuing...")
+        return True
+
+    # Wait for captcha to be solved (check every 2 seconds)
+    wait_time = 0
+    while wait_time < max_wait:
+        time.sleep(2)
+        wait_time += 2
+
+        # Check if captcha is still present
+        still_present = False
+        for selector in captcha_selectors:
+            try:
+                if page.locator(selector).is_visible(timeout=1000):
+                    still_present = True
+                    break
+            except:
+                pass
+
+        if not still_present:
+            logger.success(f"{runner_id}: Captcha solved! Continuing...")
+            return True
+
+        if wait_time % 10 == 0:
+            logger.info(f"{runner_id}: Still waiting for captcha... ({wait_time}s elapsed)")
+
+    logger.error(f"{runner_id}: Captcha timeout after {max_wait}s")
+    return False
+
+
 def human_like_click(page, locator):
     """Simulate human-like click with mouse movement and delays"""
     # Get element bounding box
@@ -120,7 +176,16 @@ def paypal_lesotho_automation(email, password, phone_number, runner_id, progress
 
             logger.info(f"{runner_id}: Navigating to PayPal signup page...")
             page.goto(url, wait_until="domcontentloaded")
-            time.sleep(3)
+            time.sleep(5)
+
+            # Check for captcha on page load
+            if not wait_for_captcha_solve(page, runner_id, max_wait=180):
+                logger.error(f"{runner_id}: Failed to solve initial captcha")
+                savecreated('failed', f"{email}:{password}:{phone_number} - Captcha timeout on load")
+                context.close()
+                if progress_bar:
+                    progress_bar.update(1)
+                return
 
             # Step 1: Select Lesotho from country dropdown
             logger.info(f"{runner_id}: Selecting Lesotho from country dropdown...")
@@ -151,6 +216,15 @@ def paypal_lesotho_automation(email, password, phone_number, runner_id, progress
                 time.sleep(random.uniform(0.5, 1.5))
                 human_like_click(page, get_started_button)
                 time.sleep(3)
+
+                # Check for captcha after clicking Get Started
+                if not wait_for_captcha_solve(page, runner_id, max_wait=180):
+                    logger.error(f"{runner_id}: Failed to solve captcha after Get Started")
+                    savecreated('failed', f"{email}:{password}:{phone_number} - Captcha timeout after Get Started")
+                    context.close()
+                    if progress_bar:
+                        progress_bar.update(1)
+                    return
             except Exception as e:
                 logger.error(f"{runner_id}: Error clicking Get Started: {e}")
                 context.close()
