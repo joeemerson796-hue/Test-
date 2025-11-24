@@ -242,8 +242,6 @@ def run_worker(index, account_data, progress_bar):
 
 
 if __name__ == "__main__":
-    global phone_numbers
-
     clear_console()
     logger.info("PayPal Lesotho Signup Automation Script")
     logger.info("=" * 50)
