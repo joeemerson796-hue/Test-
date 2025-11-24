@@ -275,7 +275,7 @@ if __name__ == "__main__":
     with tqdm(total=len(accounts), desc="Progress", unit="account") as progress_bar:
         # Execute workers
         with ThreadPoolExecutor(max_workers=num_workers) as executor:
-            executor.map(lambda i: run_worker(i, accounts[i], progress_bar), range(len(accounts)))
+            list(executor.map(lambda i: run_worker(i, accounts[i], progress_bar), range(len(accounts))))
 
     logger.success("Script finished!")
     input('Press Enter to exit...')
