@@ -90,13 +90,12 @@ def paypal_lesotho_automation(email, password, phone_number, runner_id, progress
 
     with sync_playwright() as playwright:
         try:
-            # Launch persistent context with Chrome profile in incognito mode
+            # Launch persistent context with Chrome profile (with extensions enabled)
             context = playwright.chromium.launch_persistent_context(
                 user_data_dir=profile_path,
                 headless=False,
                 channel="chrome",  # Use installed Chrome instead of Chromium
                 args=[
-                    '--incognito',  # Open in incognito mode
                     '--disable-blink-features=AutomationControlled',
                     '--disable-dev-shm-usage',
                     '--no-sandbox',
@@ -104,12 +103,19 @@ def paypal_lesotho_automation(email, password, phone_number, runner_id, progress
                     '--disable-features=IsolateOrigins,site-per-process',
                     '--disable-site-isolation-trials',
                     '--disable-features=BlockInsecurePrivateNetworkRequests',
+                    '--disable-infobars',
+                    '--disable-notifications',
                 ],
-                ignore_default_args=['--enable-automation'],
+                ignore_default_args=['--enable-automation', '--disable-extensions'],
                 viewport={'width': 1920, 'height': 1080},
-                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+                accept_downloads=True,
+                slow_mo=50  # Slow down operations by 50ms to appear more human
             )
             stealth_sync(context)
+
+            # Wait for extensions to load
+            time.sleep(3)
             page = context.pages[0] if context.pages else context.new_page()
 
             logger.info(f"{runner_id}: Navigating to PayPal signup page...")
@@ -286,6 +292,9 @@ if __name__ == "__main__":
     clear_console()
     logger.info("PayPal Lesotho Signup Automation Script")
     logger.info("=" * 50)
+    logger.warning("IMPORTANT: Make sure Google Chrome is completely closed before running!")
+    logger.warning("Chrome must be closed for profiles to load properly with extensions.")
+    input("Press Enter when Chrome is closed and you're ready to continue...")
 
     # Load accounts from file (format: email:password)
     try:
