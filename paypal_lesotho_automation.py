@@ -256,6 +256,7 @@ if __name__ == "__main__":
         exit(1)
 
     # Load phone numbers from file
+    global phone_numbers
     try:
         with open("numbers.txt", "r", encoding="utf8") as file:
             phone_numbers = [line.strip() for line in file if line.strip()]
