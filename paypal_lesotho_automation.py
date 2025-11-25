@@ -22,6 +22,49 @@ def savecreated(filename, message):
         file.writelines(message + '\n')
 
 
+def parse_cookies_from_file(filename="cookies.txt"):
+    """
+    Parse cookies from file. Each cookie set is separated by blank lines.
+    Format: name\tvalue\tdomain\tpath\t...
+    Returns list of cookie sets (each set is a list of cookie dicts)
+    """
+    cookie_sets = []
+    current_set = []
+
+    try:
+        with open(filename, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+
+                # Empty line means end of current cookie set
+                if not line:
+                    if current_set:
+                        cookie_sets.append(current_set)
+                        current_set = []
+                    continue
+
+                # Parse cookie line (tab-separated)
+                parts = line.split('\t')
+                if len(parts) >= 4:
+                    cookie = {
+                        "name": parts[0],
+                        "value": parts[1],
+                        "domain": parts[2],
+                        "path": parts[3]
+                    }
+                    current_set.append(cookie)
+
+            # Add last set if exists
+            if current_set:
+                cookie_sets.append(current_set)
+
+        logger.info(f"Loaded {len(cookie_sets)} cookie sets from {filename}")
+        return cookie_sets
+    except FileNotFoundError:
+        logger.error(f"'{filename}' not found. Create a file with cookie sets (separated by blank lines)")
+        return []
+
+
 def generate_random_tracking_id(length=32):
     """Generate a random numeric tracking ID"""
     return ''.join([str(random.randint(0, 9)) for _ in range(length)])
@@ -68,123 +111,11 @@ def human_like_click(page, locator):
         locator.click()
 
 
-def paypal_lesotho_automation(phone_number, runner_id, progress_bar):
+def paypal_lesotho_automation(phone_number, cookies, runner_id, progress_bar):
     """
     Automates PayPal Lesotho phone verification using cookies for authentication
     """
     url = "https://www.paypal.com/ls/welcome/signup/#/login_info_phone"
-
-    # PayPal cookies for authentication
-    cookies = [
-        {
-            "name": "__cf_bm",
-            "value": "hN15VzVHFv2PLYAKoUAi6UYzCd5L4vXG88DLOfXo_no-1764085666-1.0.1.1-OTom315ttrO37LkJ9qqsz9D2pv9v9l0Nqyve5ObdtolAFlzIu1ZGOJCrFNtXV5BfVMVfK08Gw_0v2INR4diEeAK.ZrhW62ZXHwVSjQkNY4U",
-            "domain": ".t.paypal.com",
-            "path": "/"
-        },
-        {
-            "name": "_dd_s",
-            "value": "aid=tzwbc3azxu&rum=2&id=2ab67fa6-e006-4fcd-bb64-c28e448c1768&created=1764085665713&expire=1764087737629",
-            "domain": "www.paypal.com",
-            "path": "/"
-        },
-        {
-            "name": "cookie_prefs",
-            "value": "T%3D0%2CP%3D1%2CF%3D1%2Ctype%3Dimplicit",
-            "domain": ".paypal.com",
-            "path": "/"
-        },
-        {
-            "name": "datadome",
-            "value": "uYVa~TyeP8fYzPAdoz5YXak_ZuYrrh~HY2sR_BgaSZ_oAz40cCi7N~qLDeXUvRQglQ8Ar0bIm69FTYwN5OazQsjnYWYVmAmJ~s8lsiQl8qYwd7CfeuHe2i43lAcEij_T",
-            "domain": ".paypal.com",
-            "path": "/"
-        },
-        {
-            "name": "ddgl",
-            "value": "1",
-            "domain": "www.paypal.com",
-            "path": "/ls/welcome/signup"
-        },
-        {
-            "name": "ddi",
-            "value": "eliV43ghFFcv138Ezn4bxyf2Tfm_RI6WfGufZ5xTYaZANdRNVWIyL3xYHdcuf9Xv4gL6Uyaj_3FWua-JZiIiLbMd9scnLWMNevI3mTHQcQyiHhdj",
-            "domain": ".paypal.com",
-            "path": "/"
-        },
-        {
-            "name": "enforce_policy",
-            "value": "ccpa",
-            "domain": ".paypal.com",
-            "path": "/"
-        },
-        {
-            "name": "KHcl0EuY7AKSMgfvHl7J5E7hPtK",
-            "value": "HONrPQZHIHi28GNPe6A5CzAMsEziF2qrUYdZaqZw2h3z1tIDcJgqwgJsOKgpHm3wP8TRv7zWG9Z2BxpG",
-            "domain": ".paypal.com",
-            "path": "/"
-        },
-        {
-            "name": "l7_az",
-            "value": "dcg16.slc",
-            "domain": ".paypal.com",
-            "path": "/"
-        },
-        {
-            "name": "LANG",
-            "value": "en_US%3BLS",
-            "domain": ".paypal.com",
-            "path": "/"
-        },
-        {
-            "name": "nsid",
-            "value": "s%3Ad1qiYjRU46VE4EWUEP6V0DOz90_t63js.4A4EWY3FUX8k27Pp4e4BEWG73DliZXfcwnCtBAxCPmA",
-            "domain": "www.paypal.com",
-            "path": "/"
-        },
-        {
-            "name": "sc_f",
-            "value": "uQWKGeiDOdA9c8o9si2pcRZM8vOmxP-TBA8HB4sh-mvyQnRzqNfsSvRCZPwZthySx6SKAMH7Iw3AqVU3uCx0uUoeLUT6CY2xk7MWUW",
-            "domain": ".paypal.com",
-            "path": "/"
-        },
-        {
-            "name": "TLTDID",
-            "value": "78125665868591176897078367717253",
-            "domain": ".paypal.com",
-            "path": "/"
-        },
-        {
-            "name": "TLTSID",
-            "value": "32232403504583738308446091121218",
-            "domain": ".paypal.com",
-            "path": "/"
-        },
-        {
-            "name": "ts",
-            "value": "vreXpYrS%3D1795622837%26vteXpYrS%3D1764088637%26vr%3Dbbb30b5f19a0a554401c10bffdd0dc8c%26vt%3Dbbb30b5f19a0a554401c10bffdd0dc8b%26vtyp%3Dnew",
-            "domain": ".paypal.com",
-            "path": "/"
-        },
-        {
-            "name": "ts_c",
-            "value": "vr%3Dbbb30b5f19a0a554401c10bffdd0dc8c%26vt%3Dbbb30b5f19a0a554401c10bffdd0dc8b",
-            "domain": ".paypal.com",
-            "path": "/"
-        },
-        {
-            "name": "tsrce",
-            "value": "privacynodeweb",
-            "domain": ".paypal.com",
-            "path": "/"
-        },
-        {
-            "name": "x-pp-s",
-            "value": "eyJ0IjoiMTc2NDA4NTY4MzAzOCIsImwiOiIwIiwibSI6IjAifQ",
-            "domain": ".paypal.com",
-            "path": "/"
-        }
-    ]
 
     # Randomize tracking cookies for each session
     cookies = randomize_cookies(cookies)
@@ -290,14 +221,14 @@ def paypal_lesotho_automation(phone_number, runner_id, progress_bar):
                 progress_bar.update(1)
 
 
-def run_worker(index, phone_number, progress_bar):
+def run_worker(index, phone_number, cookies, progress_bar):
     """
-    Worker function to process a single phone number
+    Worker function to process a single phone number with specific cookies
     """
     runner_id = f"Worker-{index + 1}"
 
     logger.info(f"{runner_id}: Starting automation for phone {phone_number}")
-    paypal_lesotho_automation(phone_number, runner_id, progress_bar)
+    paypal_lesotho_automation(phone_number, cookies, runner_id, progress_bar)
 
 
 if __name__ == "__main__":
@@ -318,14 +249,28 @@ if __name__ == "__main__":
         logger.error("No phone numbers loaded. Please add numbers to numbers.txt")
         exit(1)
 
+    # Load cookie sets from file
+    cookie_sets = parse_cookies_from_file("cookies.txt")
+    if len(cookie_sets) == 0:
+        logger.error("No cookie sets loaded. Please add cookies to cookies.txt")
+        exit(1)
+
+    # Pair phone numbers with cookies (reuse cookies if more numbers than cookie sets)
+    tasks = []
+    for i, phone in enumerate(phone_numbers):
+        cookie_set = cookie_sets[i % len(cookie_sets)]  # Cycle through cookie sets
+        tasks.append((i, phone, cookie_set))
+
+    logger.info(f"Created {len(tasks)} tasks (Phone numbers: {len(phone_numbers)}, Cookie sets: {len(cookie_sets)})")
+
     # Ask for number of workers
     num_workers = int(input('Number of concurrent workers: '))
 
     # Initialize progress bar
-    with tqdm(total=len(phone_numbers), desc="Progress", unit="phone") as progress_bar:
+    with tqdm(total=len(tasks), desc="Progress", unit="phone") as progress_bar:
         # Execute workers
         with ThreadPoolExecutor(max_workers=num_workers) as executor:
-            executor.map(lambda i: run_worker(i, phone_numbers[i], progress_bar), range(len(phone_numbers)))
+            executor.map(lambda task: run_worker(task[0], task[1], task[2], progress_bar), tasks)
 
     logger.success("Script finished!")
     input('Press Enter to exit...')
