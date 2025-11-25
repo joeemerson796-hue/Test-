@@ -22,6 +22,32 @@ def savecreated(filename, message):
         file.writelines(message + '\n')
 
 
+def generate_random_tracking_id(length=32):
+    """Generate a random numeric tracking ID"""
+    return ''.join([str(random.randint(0, 9)) for _ in range(length)])
+
+
+def randomize_cookies(cookies):
+    """
+    Randomize non-critical tracking cookies to make each session unique
+    Safe to randomize: TLTDID, TLTSID, tsrce, l7_az
+    """
+    datacenters = ["dcg16.slc", "dcg17.phx", "dcg18.sjc", "dcg19.lvs", "dcg20.ord"]
+    traffic_sources = ["privacynodeweb", "merchantweb", "p2pnodeweb", "unifiedlogin"]
+
+    for cookie in cookies:
+        if cookie["name"] == "TLTDID":
+            cookie["value"] = generate_random_tracking_id(32)
+        elif cookie["name"] == "TLTSID":
+            cookie["value"] = generate_random_tracking_id(32)
+        elif cookie["name"] == "l7_az":
+            cookie["value"] = random.choice(datacenters)
+        elif cookie["name"] == "tsrce":
+            cookie["value"] = random.choice(traffic_sources)
+
+    return cookies
+
+
 def human_like_click(page, locator):
     """Simulate human-like click with mouse movement and delays"""
     # Get element bounding box
@@ -159,6 +185,9 @@ def paypal_lesotho_automation(phone_number, runner_id, progress_bar):
             "path": "/"
         }
     ]
+
+    # Randomize tracking cookies for each session
+    cookies = randomize_cookies(cookies)
 
     with sync_playwright() as playwright:
         try:
