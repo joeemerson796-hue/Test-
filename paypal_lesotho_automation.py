@@ -10,9 +10,6 @@ from tqdm import tqdm
 
 # Global lock for thread-safe file operations
 file_lock = Lock()
-phone_numbers = []
-phone_index = 0
-phone_lock = Lock()
 
 
 def clear_console():
@@ -23,18 +20,6 @@ def savecreated(filename, message):
     workcard = filename + '.txt'
     with open(workcard, "a", encoding="utf8") as file:
         file.writelines(message + '\n')
-
-
-def get_next_phone():
-    """Get next phone number from the pool in a thread-safe manner"""
-    global phone_index, phone_numbers, phone_lock
-
-    with phone_lock:
-        if phone_index >= len(phone_numbers):
-            phone_index = 0  # Reset to beginning if we run out
-        phone = phone_numbers[phone_index]
-        phone_index += 1
-        return phone
 
 
 def human_like_click(page, locator):
@@ -57,97 +42,72 @@ def human_like_click(page, locator):
         locator.click()
 
 
-def paypal_lesotho_automation(email, password, phone_number, runner_id, progress_bar):
+def paypal_lesotho_automation(phone_number, runner_id, progress_bar):
     """
-    Automates PayPal Lesotho signup process
+    Automates PayPal Lesotho phone verification using cookies for authentication
     """
     url = "https://www.paypal.com/ls/welcome/signup/#/login_info_phone"
+
+    # PayPal cookies for authentication
+    cookies = [
+        {
+            "name": "nsid",
+            "value": "s%3Ad1qiYjRU46VE4EWUEP6V0DOz90_t63js.4A4EWY3FUX8k27Pp4e4BEWG73DliZXfcwnCtBAxCPmA",
+            "domain": ".paypal.com",
+            "path": "/"
+        },
+        {
+            "name": "KHcl0EuY7AKSMgfvHl7J5E7hPtK",
+            "value": "HONrPQZHIHi28GNPe6A5CzAMsEziF2qrUYdZaqZw2h3z1tIDcJgqwgJsOKgpHm3wP8TRv7zWG9Z2BxpG",
+            "domain": ".paypal.com",
+            "path": "/"
+        },
+        {
+            "name": "ddi",
+            "value": "eliV43ghFFcv138Ezn4bxyf2Tfm_RI6WfGufZ5xTYaZANdRNVWIyL3xYHdcuf9Xv4gL6Uyaj_3FWua-JZiIiLbMd9scnLWMNevI3mTHQcQyiHhdj",
+            "domain": ".paypal.com",
+            "path": "/"
+        },
+        {
+            "name": "sc_f",
+            "value": "uQWKGeiDOdA9c8o9si2pcRZM8vOmxP-TBA8HB4sh-mvyQnRzqNfsSvRCZPwZthySx6SKAMH7Iw3AqVU3uCx0uUoeLUT6CY2xk7MWUW",
+            "domain": ".paypal.com",
+            "path": "/"
+        },
+        {
+            "name": "l7_az",
+            "value": "dcg16.slc",
+            "domain": ".paypal.com",
+            "path": "/"
+        },
+        {
+            "name": "x-pp-s",
+            "value": "eyJ0IjoiMTc2NDA4NTY4MzAzOCIsImwiOiIwIiwibSI6IjAifQ",
+            "domain": ".paypal.com",
+            "path": "/"
+        }
+    ]
 
     with sync_playwright() as playwright:
         try:
             browser = playwright.chromium.launch(headless=False)  # Visible browser for debugging
             context = browser.new_context()
             stealth_sync(context)
+
+            # Add cookies to the context
+            logger.info(f"{runner_id}: Setting authentication cookies...")
+            context.add_cookies(cookies)
+
             page = context.new_page()
 
-            logger.info(f"{runner_id}: Navigating to PayPal signup page...")
+            logger.info(f"{runner_id}: Navigating to PayPal phone entry page...")
             page.goto(url, wait_until="domcontentloaded")
             time.sleep(3)
 
-            # Step 1: Select Lesotho from country dropdown
-            logger.info(f"{runner_id}: Selecting Lesotho from country dropdown...")
-            try:
-                # Click on the country input to open dropdown
-                country_input = page.locator('input[name="combo_t_/paypalAccountData/countryselector"]')
-                country_input.wait_for(state="visible", timeout=15000)
-                country_input.click()
-                time.sleep(1)
-
-                # Clear existing value and type "Lesotho"
-                country_input.fill("")
-                time.sleep(0.5)
-                country_input.type("Lesotho", delay=100)
-                time.sleep(2)
-
-                # Select Lesotho from dropdown options
-                lesotho_option = page.locator('text=Lesotho').first
-                lesotho_option.click()
-                time.sleep(1)
-            except Exception as e:
-                logger.error(f"{runner_id}: Error selecting Lesotho: {e}")
-                browser.close()
-                if progress_bar:
-                    progress_bar.update(1)
-                return
-
-            # Step 2: Click "Get Started" button
-            logger.info(f"{runner_id}: Clicking Get Started button...")
-            try:
-                get_started_button = page.locator('button#paypalAccountData_submit[name="/appData/action"]').first
-                get_started_button.wait_for(state="visible", timeout=10000)
-                time.sleep(random.uniform(0.5, 1.5))
-                human_like_click(page, get_started_button)
-                time.sleep(3)
-            except Exception as e:
-                logger.error(f"{runner_id}: Error clicking Get Started: {e}")
-                browser.close()
-                if progress_bar:
-                    progress_bar.update(1)
-                return
-
-            # Step 3: Enter email address
-            logger.info(f"{runner_id}: Entering email address...")
-            try:
-                email_input = page.locator('input[type="email"][name="/paypalAccountData/email"]')
-                email_input.wait_for(state="visible", timeout=15000)
-                email_input.fill(email)
-                time.sleep(1)
-            except Exception as e:
-                logger.error(f"{runner_id}: Error entering email: {e}")
-                browser.close()
-                if progress_bar:
-                    progress_bar.update(1)
-                return
-
-            # Step 4: Click Next button (after email)
-            logger.info(f"{runner_id}: Clicking Next button (after email)...")
-            try:
-                next_button = page.locator('button#paypalAccountData_submit[value="login_info_phone"]').first
-                next_button.wait_for(state="visible", timeout=10000)
-                time.sleep(random.uniform(0.5, 1.5))
-                human_like_click(page, next_button)
-                time.sleep(3)
-            except Exception as e:
-                logger.error(f"{runner_id}: Error clicking Next (after email): {e}")
-                browser.close()
-                if progress_bar:
-                    progress_bar.update(1)
-                return
-
-            # Step 5: Enter phone number
+            # Step 1: Enter phone number directly
             logger.info(f"{runner_id}: Entering phone number...")
             try:
-                # Wait for phone input field (the name pattern suggests it might have dynamic parts)
+                # Wait for phone input field
                 phone_input = page.locator('input[type="tel"]').first
                 phone_input.wait_for(state="visible", timeout=15000)
                 phone_input.fill(phone_number)
@@ -159,7 +119,7 @@ def paypal_lesotho_automation(email, password, phone_number, runner_id, progress
                     progress_bar.update(1)
                 return
 
-            # Step 6: Click Next button (after phone)
+            # Step 2: Click Next button (after phone)
             logger.info(f"{runner_id}: Clicking Next button (after phone)...")
             try:
                 next_button_phone = page.locator('button#paypalAccountData_submit[value="init_phone_confirmation"]').first
@@ -174,7 +134,7 @@ def paypal_lesotho_automation(email, password, phone_number, runner_id, progress
                     progress_bar.update(1)
                 return
 
-            # Step 7: Keep clicking "Resend code" until error appears
+            # Step 3: Keep clicking "Resend code" until error appears
             logger.info(f"{runner_id}: Starting resend loop...")
             resend_count = 0
             max_resends = 100  # Safety limit
@@ -187,7 +147,7 @@ def paypal_lesotho_automation(email, password, phone_number, runner_id, progress
 
                     if error_text.is_visible(timeout=1000):
                         logger.success(f"{runner_id}: Account DONE (resend limit reached after {resend_count} resends)")
-                        savecreated('completed', f"{email}:{password}:{phone_number}")
+                        savecreated('completed', f"{phone_number}")
                         browser.close()
                         if progress_bar:
                             progress_bar.update(1)
@@ -220,7 +180,7 @@ def paypal_lesotho_automation(email, password, phone_number, runner_id, progress
 
         except Exception as e:
             logger.error(f"{runner_id}: Automation failed - {e}")
-            savecreated('failed', f"{email}:{password}:{phone_number} - Error: {str(e)}")
+            savecreated('failed', f"{phone_number} - Error: {str(e)}")
             try:
                 browser.close()
             except:
@@ -229,33 +189,20 @@ def paypal_lesotho_automation(email, password, phone_number, runner_id, progress
                 progress_bar.update(1)
 
 
-def run_worker(index, account_data, progress_bar):
+def run_worker(index, phone_number, progress_bar):
     """
-    Worker function to process a single account
+    Worker function to process a single phone number
     """
     runner_id = f"Worker-{index + 1}"
-    email, password = account_data.split(':', 1)
-    phone = get_next_phone()  # Get next phone from pool
 
-    logger.info(f"{runner_id}: Starting automation for {email} with phone {phone}")
-    paypal_lesotho_automation(email, password, phone, runner_id, progress_bar)
+    logger.info(f"{runner_id}: Starting automation for phone {phone_number}")
+    paypal_lesotho_automation(phone_number, runner_id, progress_bar)
 
 
 if __name__ == "__main__":
-    global phone_numbers
-
     clear_console()
-    logger.info("PayPal Lesotho Signup Automation Script")
+    logger.info("PayPal Lesotho Phone Verification Automation Script")
     logger.info("=" * 50)
-
-    # Load accounts from file (format: email:password)
-    try:
-        with open("accounts.txt", "r", encoding="utf8") as file:
-            accounts = [line.strip() for line in file if line.strip()]
-        logger.info(f"Loaded {len(accounts)} accounts from accounts.txt")
-    except FileNotFoundError:
-        logger.error("'accounts.txt' not found. Create a file with format: email:password")
-        exit(1)
 
     # Load phone numbers from file
     try:
@@ -274,10 +221,10 @@ if __name__ == "__main__":
     num_workers = int(input('Number of concurrent workers: '))
 
     # Initialize progress bar
-    with tqdm(total=len(accounts), desc="Progress", unit="account") as progress_bar:
+    with tqdm(total=len(phone_numbers), desc="Progress", unit="phone") as progress_bar:
         # Execute workers
         with ThreadPoolExecutor(max_workers=num_workers) as executor:
-            executor.map(lambda i: run_worker(i, accounts[i], progress_bar), range(len(accounts)))
+            executor.map(lambda i: run_worker(i, phone_numbers[i], progress_bar), range(len(phone_numbers)))
 
     logger.success("Script finished!")
     input('Press Enter to exit...')
