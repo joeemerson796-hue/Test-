@@ -122,19 +122,47 @@ def paypal_lesotho_automation(phone_number, cookies, runner_id, progress_bar):
 
     with sync_playwright() as playwright:
         try:
-            browser = playwright.chromium.launch(headless=False)  # Visible browser for debugging
-            context = browser.new_context()
+            browser = playwright.chromium.launch(
+                headless=False,
+                args=[
+                    '--disable-blink-features=AutomationControlled',
+                    '--disable-dev-shm-usage',
+                    '--no-sandbox'
+                ]
+            )
+            context = browser.new_context(
+                viewport={'width': 1920, 'height': 1080},
+                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            )
             stealth_sync(context)
+            page = context.new_page()
+
+            # Navigate to PayPal first to establish domain
+            logger.info(f"{runner_id}: Navigating to PayPal base domain...")
+            page.goto("https://www.paypal.com", wait_until="domcontentloaded")
+            time.sleep(2)
 
             # Add cookies to the context
             logger.info(f"{runner_id}: Setting authentication cookies...")
             context.add_cookies(cookies)
 
-            page = context.new_page()
+            # Reload to apply cookies
+            logger.info(f"{runner_id}: Reloading with cookies...")
+            page.reload(wait_until="domcontentloaded")
+            time.sleep(2)
 
-            logger.info(f"{runner_id}: Navigating to PayPal phone entry page...")
+            # Check if cookies worked by looking at the page
+            current_url = page.url
+            logger.info(f"{runner_id}: Current URL after cookie auth: {current_url}")
+
+            # Now navigate to the phone entry page
+            logger.info(f"{runner_id}: Navigating to phone entry page...")
             page.goto(url, wait_until="domcontentloaded")
             time.sleep(3)
+
+            # Check final URL
+            final_url = page.url
+            logger.info(f"{runner_id}: Final URL: {final_url}")
 
             # Step 1: Enter phone number directly
             logger.info(f"{runner_id}: Entering phone number...")
