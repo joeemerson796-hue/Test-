@@ -51,8 +51,44 @@ def paypal_lesotho_automation(phone_number, runner_id, progress_bar):
     # PayPal cookies for authentication
     cookies = [
         {
-            "name": "nsid",
-            "value": "s%3Ad1qiYjRU46VE4EWUEP6V0DOz90_t63js.4A4EWY3FUX8k27Pp4e4BEWG73DliZXfcwnCtBAxCPmA",
+            "name": "__cf_bm",
+            "value": "hN15VzVHFv2PLYAKoUAi6UYzCd5L4vXG88DLOfXo_no-1764085666-1.0.1.1-OTom315ttrO37LkJ9qqsz9D2pv9v9l0Nqyve5ObdtolAFlzIu1ZGOJCrFNtXV5BfVMVfK08Gw_0v2INR4diEeAK.ZrhW62ZXHwVSjQkNY4U",
+            "domain": ".t.paypal.com",
+            "path": "/"
+        },
+        {
+            "name": "_dd_s",
+            "value": "aid=tzwbc3azxu&rum=2&id=2ab67fa6-e006-4fcd-bb64-c28e448c1768&created=1764085665713&expire=1764087737629",
+            "domain": "www.paypal.com",
+            "path": "/"
+        },
+        {
+            "name": "cookie_prefs",
+            "value": "T%3D0%2CP%3D1%2CF%3D1%2Ctype%3Dimplicit",
+            "domain": ".paypal.com",
+            "path": "/"
+        },
+        {
+            "name": "datadome",
+            "value": "uYVa~TyeP8fYzPAdoz5YXak_ZuYrrh~HY2sR_BgaSZ_oAz40cCi7N~qLDeXUvRQglQ8Ar0bIm69FTYwN5OazQsjnYWYVmAmJ~s8lsiQl8qYwd7CfeuHe2i43lAcEij_T",
+            "domain": ".paypal.com",
+            "path": "/"
+        },
+        {
+            "name": "ddgl",
+            "value": "1",
+            "domain": "www.paypal.com",
+            "path": "/ls/welcome/signup"
+        },
+        {
+            "name": "ddi",
+            "value": "eliV43ghFFcv138Ezn4bxyf2Tfm_RI6WfGufZ5xTYaZANdRNVWIyL3xYHdcuf9Xv4gL6Uyaj_3FWua-JZiIiLbMd9scnLWMNevI3mTHQcQyiHhdj",
+            "domain": ".paypal.com",
+            "path": "/"
+        },
+        {
+            "name": "enforce_policy",
+            "value": "ccpa",
             "domain": ".paypal.com",
             "path": "/"
         },
@@ -63,9 +99,21 @@ def paypal_lesotho_automation(phone_number, runner_id, progress_bar):
             "path": "/"
         },
         {
-            "name": "ddi",
-            "value": "eliV43ghFFcv138Ezn4bxyf2Tfm_RI6WfGufZ5xTYaZANdRNVWIyL3xYHdcuf9Xv4gL6Uyaj_3FWua-JZiIiLbMd9scnLWMNevI3mTHQcQyiHhdj",
+            "name": "l7_az",
+            "value": "dcg16.slc",
             "domain": ".paypal.com",
+            "path": "/"
+        },
+        {
+            "name": "LANG",
+            "value": "en_US%3BLS",
+            "domain": ".paypal.com",
+            "path": "/"
+        },
+        {
+            "name": "nsid",
+            "value": "s%3Ad1qiYjRU46VE4EWUEP6V0DOz90_t63js.4A4EWY3FUX8k27Pp4e4BEWG73DliZXfcwnCtBAxCPmA",
+            "domain": "www.paypal.com",
             "path": "/"
         },
         {
@@ -75,8 +123,32 @@ def paypal_lesotho_automation(phone_number, runner_id, progress_bar):
             "path": "/"
         },
         {
-            "name": "l7_az",
-            "value": "dcg16.slc",
+            "name": "TLTDID",
+            "value": "78125665868591176897078367717253",
+            "domain": ".paypal.com",
+            "path": "/"
+        },
+        {
+            "name": "TLTSID",
+            "value": "32232403504583738308446091121218",
+            "domain": ".paypal.com",
+            "path": "/"
+        },
+        {
+            "name": "ts",
+            "value": "vreXpYrS%3D1795622837%26vteXpYrS%3D1764088637%26vr%3Dbbb30b5f19a0a554401c10bffdd0dc8c%26vt%3Dbbb30b5f19a0a554401c10bffdd0dc8b%26vtyp%3Dnew",
+            "domain": ".paypal.com",
+            "path": "/"
+        },
+        {
+            "name": "ts_c",
+            "value": "vr%3Dbbb30b5f19a0a554401c10bffdd0dc8c%26vt%3Dbbb30b5f19a0a554401c10bffdd0dc8b",
+            "domain": ".paypal.com",
+            "path": "/"
+        },
+        {
+            "name": "tsrce",
+            "value": "privacynodeweb",
             "domain": ".paypal.com",
             "path": "/"
         },
