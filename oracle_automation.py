@@ -103,26 +103,33 @@ def wait_for_oracle_verification_email(page, runner_id):
                 human_like_click(page, oracle_email_row)
                 time.sleep(3)
 
-                # Find the alternative verification URL (plain text paragraph)
-                # Look for paragraph containing the verification URL
+                # Find the verification URL in the email body
                 logger.info(f"{runner_id}: Looking for verification URL in email body...")
 
-                # Try to find the paragraph with the full URL text
-                url_paragraph = page.locator('p:has-text("profile.oracle.com/myprofile/account/verify.jspx")')
-                url_paragraph.wait_for(state="visible", timeout=10000)
+                # Get all text content from the page
+                page_text = page.inner_text('body')
 
-                # Get the text content which contains the URL
-                verify_url = url_paragraph.inner_text().strip()
-                logger.info(f"{runner_id}: Found verification URL: {verify_url}")
+                # Extract the verification URL using string search
+                import re
+                url_pattern = r'https://profile\.oracle\.com/myprofile/account/verify\.jspx\?key=[A-F0-9]+'
+                match = re.search(url_pattern, page_text)
 
-                # Navigate to verification URL in a new page
-                logger.info(f"{runner_id}: Opening verification link in new tab...")
-                verify_page = page.context.new_page()
-                verify_page.goto(verify_url)
-                time.sleep(5)
+                if match:
+                    verify_url = match.group(0)
+                    logger.success(f"{runner_id}: Found verification URL!")
+                    logger.info(f"{runner_id}: URL: {verify_url[:80]}...")
 
-                logger.success(f"{runner_id}: Email verified successfully!")
-                return True
+                    # Navigate to verification URL in a new page
+                    logger.info(f"{runner_id}: Opening verification link in new tab...")
+                    verify_page = page.context.new_page()
+                    verify_page.goto(verify_url)
+                    time.sleep(5)
+
+                    logger.success(f"{runner_id}: Email verified successfully!")
+                    return True
+                else:
+                    logger.error(f"{runner_id}: Could not find verification URL in email")
+                    return False
         except Exception as e:
             logger.debug(f"{runner_id}: Waiting for email... {e}")
             pass
