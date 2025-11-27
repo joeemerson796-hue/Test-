@@ -92,16 +92,59 @@ def wait_for_oracle_verification_email(page, runner_id):
 
     while time.time() - start_time < max_wait:
         try:
-            # Look for the parent div that contains oracle-acct_ww@oracle.com
-            # The clickable element is the parent div with wire:click attribute
-            oracle_email_row = page.locator('div[wire\\:click^="updateView"]:has-text("oracle-acct_ww@oracle.com")')
+            # Reload page to see new emails
+            page.reload()
+            time.sleep(2)
 
-            if oracle_email_row.is_visible(timeout=2000):
+            # Try multiple simple selectors to find the Oracle email
+            oracle_email_row = None
+
+            # Method 1: Search for text directly (most reliable)
+            try:
+                element = page.get_by_text("oracle-acct_ww@oracle.com")
+                if element.is_visible(timeout=2000):
+                    oracle_email_row = element
+                    logger.info(f"{runner_id}: Found email using text search for sender")
+            except:
+                pass
+
+            # Method 2: Search for subject line
+            if not oracle_email_row:
+                try:
+                    element = page.get_by_text("Your Oracle Account - Verify Your Email Address")
+                    if element.is_visible(timeout=2000):
+                        oracle_email_row = element
+                        logger.info(f"{runner_id}: Found email using text search for subject")
+                except:
+                    pass
+
+            # Method 3: Search for partial text "oracle-acct_ww"
+            if not oracle_email_row:
+                try:
+                    element = page.get_by_text("oracle-acct_ww", exact=False)
+                    if element.is_visible(timeout=2000):
+                        oracle_email_row = element
+                        logger.info(f"{runner_id}: Found email using partial text search")
+                except:
+                    pass
+
+            # Method 4: XPath fallback - find any div containing oracle email
+            if not oracle_email_row:
+                try:
+                    element = page.locator('xpath=//div[contains(text(), "oracle-acct_ww")]')
+                    if element.first.is_visible(timeout=2000):
+                        oracle_email_row = element.first
+                        logger.info(f"{runner_id}: Found email using XPath")
+                except:
+                    pass
+
+            if oracle_email_row:
                 logger.success(f"{runner_id}: Oracle verification email received!")
 
                 # Click on the email row to open it
-                human_like_click(page, oracle_email_row)
-                time.sleep(3)
+                logger.info(f"{runner_id}: Clicking on email...")
+                oracle_email_row.click()
+                time.sleep(5)  # Wait longer for email to open
 
                 # Find the verification URL in the email body
                 logger.info(f"{runner_id}: Looking for verification URL in email body...")
@@ -129,6 +172,12 @@ def wait_for_oracle_verification_email(page, runner_id):
                     return True
                 else:
                     logger.error(f"{runner_id}: Could not find verification URL in email")
+                    # Take screenshot for debugging
+                    try:
+                        page.screenshot(path=f"oracle_email_{runner_id}.png")
+                        logger.info(f"{runner_id}: Screenshot saved")
+                    except:
+                        pass
                     return False
         except Exception as e:
             logger.debug(f"{runner_id}: Waiting for email... {e}")
