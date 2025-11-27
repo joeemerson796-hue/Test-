@@ -147,11 +147,26 @@ def create_oracle_account(page, email, password, runner_id):
         time.sleep(random.uniform(0.2, 0.5))
 
     # Click to open dropdown
+    logger.info(f"{runner_id}: Opening country dropdown...")
     country_select.click()
-    time.sleep(random.uniform(0.3, 0.7))  # Time to "look" at options
+    time.sleep(random.uniform(0.5, 1.0))  # Time to "look" at options
 
-    # Select Oman
-    country_select.select_option(value="OM")
+    # Find and click on Oman option (more human-like than select_option)
+    logger.info(f"{runner_id}: Clicking on Oman option...")
+    oman_option = oracle_page.locator('select#sView1\\:r1\\:0\\:country\\:\\:content option[value="OM"]')
+
+    # Move mouse to Oman option and click
+    oman_box = oman_option.bounding_box()
+    if oman_box:
+        oman_x = oman_box['x'] + oman_box['width'] * random.uniform(0.3, 0.7)
+        oman_y = oman_box['y'] + oman_box['height'] * random.uniform(0.3, 0.7)
+        oracle_page.mouse.move(oman_x, oman_y)
+        time.sleep(random.uniform(0.2, 0.4))
+        oracle_page.mouse.click(oman_x, oman_y)
+    else:
+        # Fallback to regular select if bounding box not available
+        country_select.select_option(value="OM")
+
     time.sleep(random.uniform(0.8, 1.5))  # Pause after selection
 
     # NOW fill email
