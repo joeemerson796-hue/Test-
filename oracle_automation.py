@@ -103,17 +103,19 @@ def wait_for_oracle_verification_email(page, runner_id):
                 human_like_click(page, oracle_email_row)
                 time.sleep(3)
 
-                # Find verification link (contains verify.jspx in href)
-                verify_link = page.locator('a[href*="verify.jspx"]')
-                verify_link.wait_for(state="visible", timeout=10000)
+                # Find the alternative verification URL (plain text paragraph)
+                # Look for paragraph containing the verification URL
+                logger.info(f"{runner_id}: Looking for verification URL in email body...")
 
-                logger.info(f"{runner_id}: Found verification link, getting URL...")
+                # Try to find the paragraph with the full URL text
+                url_paragraph = page.locator('p:has-text("profile.oracle.com/myprofile/account/verify.jspx")')
+                url_paragraph.wait_for(state="visible", timeout=10000)
 
-                # Get the verification URL
-                verify_url = verify_link.get_attribute('href')
-                logger.info(f"{runner_id}: Verification URL: {verify_url}")
+                # Get the text content which contains the URL
+                verify_url = url_paragraph.inner_text().strip()
+                logger.info(f"{runner_id}: Found verification URL: {verify_url}")
 
-                # Navigate to verification URL in a new page (since link has target=blank)
+                # Navigate to verification URL in a new page
                 logger.info(f"{runner_id}: Opening verification link in new tab...")
                 verify_page = page.context.new_page()
                 verify_page.goto(verify_url)
