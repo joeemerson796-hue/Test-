@@ -103,13 +103,23 @@ def wait_for_oracle_verification_email(page, runner_id):
                 human_like_click(page, oracle_email_row)
                 time.sleep(3)
 
-                # Click verification link
-                verify_link = page.locator('a:has-text("Verify Email Address")')
+                # Find verification link (contains verify.jspx in href)
+                verify_link = page.locator('a[href*="verify.jspx"]')
                 verify_link.wait_for(state="visible", timeout=10000)
 
-                logger.info(f"{runner_id}: Clicking verification link...")
-                human_like_click(page, verify_link)
+                logger.info(f"{runner_id}: Found verification link, getting URL...")
+
+                # Get the verification URL
+                verify_url = verify_link.get_attribute('href')
+                logger.info(f"{runner_id}: Verification URL: {verify_url}")
+
+                # Navigate to verification URL in a new page (since link has target=blank)
+                logger.info(f"{runner_id}: Opening verification link in new tab...")
+                verify_page = page.context.new_page()
+                verify_page.goto(verify_url)
                 time.sleep(5)
+
+                logger.success(f"{runner_id}: Email verified successfully!")
                 return True
         except Exception as e:
             logger.debug(f"{runner_id}: Waiting for email... {e}")
