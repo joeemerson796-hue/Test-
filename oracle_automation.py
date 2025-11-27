@@ -330,7 +330,17 @@ def oracle_login_and_2fa(email, password, phone_numbers_for_account, runner_id):
             # Step 2: Create Oracle account
             oracle_page = create_oracle_account(page, temp_email, password, runner_id)
 
-            # Step 3: Wait for verification email
+            # Step 3: Switch back to priyo.email tab and wait for verification email
+            logger.info(f"{runner_id}: Switching back to priyo.email to check for verification email...")
+            page.bring_to_front()  # Bring priyo.email tab to front
+            time.sleep(2)
+
+            # Refresh the page to see new emails
+            logger.info(f"{runner_id}: Refreshing priyo.email page...")
+            page.reload()
+            time.sleep(3)
+
+            # Wait for verification email
             if not wait_for_oracle_verification_email(page, runner_id):
                 logger.error(f"{runner_id}: Failed to verify email")
                 browser.close()
