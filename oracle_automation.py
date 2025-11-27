@@ -173,18 +173,26 @@ def create_oracle_account(page, email, password, runner_id):
     logger.info(f"{runner_id}: Filling registration form with email: {email}")
     email_input = oracle_page.locator('input#sView1\\:r1\\:0\\:email\\:\\:content')
     email_input.wait_for(state="visible", timeout=15000)
-    email_input.fill(email)
-    time.sleep(1)
+
+    # Type slowly like a human
+    email_input.click()
+    time.sleep(random.uniform(0.3, 0.6))
+    email_input.type(email, delay=random.randint(50, 150))  # Random typing speed
+    time.sleep(random.uniform(1, 2))
 
     # Fill password
     password_input = oracle_page.locator('input#sView1\\:r1\\:0\\:password\\:\\:content')
-    password_input.fill(password)
-    time.sleep(1)
+    password_input.click()
+    time.sleep(random.uniform(0.3, 0.6))
+    password_input.type(password, delay=random.randint(50, 150))
+    time.sleep(random.uniform(1, 2))
 
     # Retype password
     retype_password_input = oracle_page.locator('input#sView1\\:r1\\:0\\:retypePassword\\:\\:content')
-    retype_password_input.fill(password)
-    time.sleep(1)
+    retype_password_input.click()
+    time.sleep(random.uniform(0.3, 0.6))
+    retype_password_input.type(password, delay=random.randint(50, 150))
+    time.sleep(random.uniform(1, 2))
 
     # Fill personal details with random data
     first_name = generate_random_string(8)
@@ -197,28 +205,84 @@ def create_oracle_account(page, email, password, runner_id):
     postal_code = generate_random_numbers(8)
 
     logger.info(f"{runner_id}: Filling personal details...")
-    oracle_page.locator('input#sView1\\:r1\\:0\\:firstName\\:\\:content').fill(first_name)
-    time.sleep(0.5)
-    oracle_page.locator('input#sView1\\:r1\\:0\\:lastName\\:\\:content').fill(last_name)
-    time.sleep(0.5)
-    oracle_page.locator('input#sView1\\:r1\\:0\\:jobTitle\\:\\:content').fill(job_title)
-    time.sleep(0.5)
-    oracle_page.locator('input#sView1\\:r1\\:0\\:workPhone\\:\\:content').fill(work_phone)
-    time.sleep(0.5)
-    oracle_page.locator('input#sView1\\:r1\\:0\\:companyName\\:\\:content').fill(company_name)
-    time.sleep(0.5)
-    oracle_page.locator('input#sView1\\:r1\\:0\\:address1\\:\\:content').fill(address)
-    time.sleep(0.5)
-    oracle_page.locator('input#sView1\\:r1\\:0\\:city\\:\\:content').fill(city)
-    time.sleep(0.5)
-    oracle_page.locator('input#sView1\\:r1\\:0\\:postalCode\\:\\:content').fill(postal_code)
-    time.sleep(1)
 
-    # Click Create Account
-    logger.info(f"{runner_id}: Submitting registration form...")
+    # First name - type like human
+    fn_input = oracle_page.locator('input#sView1\\:r1\\:0\\:firstName\\:\\:content')
+    fn_input.click()
+    time.sleep(random.uniform(0.2, 0.5))
+    fn_input.type(first_name, delay=random.randint(80, 200))
+    time.sleep(random.uniform(0.5, 1.0))
+
+    # Last name
+    ln_input = oracle_page.locator('input#sView1\\:r1\\:0\\:lastName\\:\\:content')
+    ln_input.click()
+    time.sleep(random.uniform(0.2, 0.5))
+    ln_input.type(last_name, delay=random.randint(80, 200))
+    time.sleep(random.uniform(0.5, 1.0))
+
+    # Job title
+    jt_input = oracle_page.locator('input#sView1\\:r1\\:0\\:jobTitle\\:\\:content')
+    jt_input.click()
+    time.sleep(random.uniform(0.2, 0.5))
+    jt_input.type(job_title, delay=random.randint(80, 200))
+    time.sleep(random.uniform(0.5, 1.0))
+
+    # Work phone
+    wp_input = oracle_page.locator('input#sView1\\:r1\\:0\\:workPhone\\:\\:content')
+    wp_input.click()
+    time.sleep(random.uniform(0.2, 0.5))
+    wp_input.type(work_phone, delay=random.randint(80, 200))
+    time.sleep(random.uniform(0.5, 1.0))
+
+    # Company name
+    cn_input = oracle_page.locator('input#sView1\\:r1\\:0\\:companyName\\:\\:content')
+    cn_input.click()
+    time.sleep(random.uniform(0.2, 0.5))
+    cn_input.type(company_name, delay=random.randint(80, 200))
+    time.sleep(random.uniform(0.5, 1.0))
+
+    # Address
+    addr_input = oracle_page.locator('input#sView1\\:r1\\:0\\:address1\\:\\:content')
+    addr_input.click()
+    time.sleep(random.uniform(0.2, 0.5))
+    addr_input.type(address, delay=random.randint(80, 200))
+    time.sleep(random.uniform(0.5, 1.0))
+
+    # City
+    city_input = oracle_page.locator('input#sView1\\:r1\\:0\\:city\\:\\:content')
+    city_input.click()
+    time.sleep(random.uniform(0.2, 0.5))
+    city_input.type(city, delay=random.randint(80, 200))
+    time.sleep(random.uniform(0.5, 1.0))
+
+    # Postal code
+    pc_input = oracle_page.locator('input#sView1\\:r1\\:0\\:postalCode\\:\\:content')
+    pc_input.click()
+    time.sleep(random.uniform(0.2, 0.5))
+    pc_input.type(postal_code, delay=random.randint(80, 200))
+    time.sleep(random.uniform(1, 2))
+
+    # Click Create Account - with human-like behavior
+    logger.info(f"{runner_id}: Scrolling to and clicking Create Account button...")
     create_button = oracle_page.locator('div#sView1\\:r1\\:0\\:b1 a')
-    create_button.click()
-    time.sleep(5)
+
+    # Scroll to button
+    create_button.scroll_into_view_if_needed()
+    time.sleep(random.uniform(1, 2))
+
+    # Move mouse to button and click (human-like)
+    create_button.wait_for(state="visible", timeout=10000)
+    human_like_click(oracle_page, create_button)
+
+    logger.info(f"{runner_id}: Create Account button clicked, waiting for response...")
+    time.sleep(8)  # Wait longer for Oracle to process
+
+    # Take screenshot for debugging
+    try:
+        oracle_page.screenshot(path=f"oracle_submit_{runner_id}.png")
+        logger.info(f"{runner_id}: Screenshot saved for debugging")
+    except:
+        pass
 
     return oracle_page
 
@@ -229,8 +293,27 @@ def oracle_login_and_2fa(email, password, phone_numbers_for_account, runner_id):
 
     with sync_playwright() as playwright:
         try:
-            browser = playwright.chromium.launch(headless=False)  # Changed to False to see the process
-            context = browser.new_context()
+            # Use more realistic browser settings to avoid detection
+            browser = playwright.chromium.launch(
+                headless=False,
+                args=[
+                    '--disable-blink-features=AutomationControlled',
+                    '--disable-dev-shm-usage',
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-web-security',
+                    '--disable-features=IsolateOrigins,site-per-process'
+                ]
+            )
+            context = browser.new_context(
+                viewport={'width': 1920, 'height': 1080},
+                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                locale='en-US',
+                timezone_id='America/New_York',
+                permissions=['geolocation'],
+                geolocation={'latitude': 40.7128, 'longitude': -74.0060},
+                color_scheme='light'
+            )
             stealth_sync(context)
             page = context.new_page()
 
