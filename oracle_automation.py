@@ -92,24 +92,27 @@ def wait_for_oracle_verification_email(page, runner_id):
 
     while time.time() - start_time < max_wait:
         try:
-            # Look for email from oracle-acct_ww@oracle.com
-            oracle_email = page.locator('div.text-xs.overflow-ellipsis:has-text("oracle-acct_ww@oracle.com")')
-            if oracle_email.is_visible(timeout=2000):
+            # Look for the parent div that contains oracle-acct_ww@oracle.com
+            # The clickable element is the parent div with wire:click attribute
+            oracle_email_row = page.locator('div[wire\\:click^="updateView"]:has-text("oracle-acct_ww@oracle.com")')
+
+            if oracle_email_row.is_visible(timeout=2000):
                 logger.success(f"{runner_id}: Oracle verification email received!")
-                oracle_email.click()
-                time.sleep(2)
+
+                # Click on the email row to open it
+                human_like_click(page, oracle_email_row)
+                time.sleep(3)
 
                 # Click verification link
                 verify_link = page.locator('a:has-text("Verify Email Address")')
                 verify_link.wait_for(state="visible", timeout=10000)
 
-                # Get the href and open in new page
-                href = verify_link.get_attribute('href')
                 logger.info(f"{runner_id}: Clicking verification link...")
-                verify_link.click()
-                time.sleep(3)
+                human_like_click(page, verify_link)
+                time.sleep(5)
                 return True
-        except:
+        except Exception as e:
+            logger.debug(f"{runner_id}: Waiting for email... {e}")
             pass
 
         time.sleep(3)
