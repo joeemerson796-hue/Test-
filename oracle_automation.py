@@ -134,8 +134,25 @@ def create_oracle_account(page, email, password, runner_id):
     logger.info(f"{runner_id}: Selecting country (Oman)...")
     country_select = oracle_page.locator('select#sView1\\:r1\\:0\\:country\\:\\:content')
     country_select.wait_for(state="visible", timeout=15000)
+
+    # Human-like country selection with mouse movement and delays
+    time.sleep(random.uniform(0.5, 1.2))  # Random pause before interaction
+
+    # Move mouse to the select element
+    box = country_select.bounding_box()
+    if box:
+        x = box['x'] + box['width'] * random.uniform(0.3, 0.7)
+        y = box['y'] + box['height'] * random.uniform(0.3, 0.7)
+        oracle_page.mouse.move(x, y)
+        time.sleep(random.uniform(0.2, 0.5))
+
+    # Click to open dropdown
+    country_select.click()
+    time.sleep(random.uniform(0.3, 0.7))  # Time to "look" at options
+
+    # Select Oman
     country_select.select_option(value="OM")
-    time.sleep(2)
+    time.sleep(random.uniform(0.8, 1.5))  # Pause after selection
 
     # NOW fill email
     logger.info(f"{runner_id}: Filling registration form with email: {email}")
