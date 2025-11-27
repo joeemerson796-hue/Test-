@@ -70,12 +70,12 @@ def get_priyo_email(page):
     page.goto("https://priyo.email/", wait_until="domcontentloaded")
     time.sleep(3)
 
-    # Click copy button (SVG with path containing clipboard)
+    # Get email from the input field value attribute
     try:
-        # Find the email display element first
-        email_element = page.locator('div.text-sm.font-medium').first
-        email_element.wait_for(state="visible", timeout=10000)
-        email = email_element.inner_text().strip()
+        # Find the email input field and get its value
+        email_input = page.locator('input#email[type="text"]')
+        email_input.wait_for(state="visible", timeout=10000)
+        email = email_input.get_attribute('value')
         logger.success(f"Got email: {email}")
         return email
     except Exception as e:
@@ -130,8 +130,15 @@ def create_oracle_account(page, email, password, runner_id):
                       wait_until="domcontentloaded")
     time.sleep(3)
 
-    # Fill email
-    logger.info(f"{runner_id}: Filling registration form...")
+    # FIRST: Select country - Oman (OM) - BEFORE filling any other fields
+    logger.info(f"{runner_id}: Selecting country (Oman)...")
+    country_select = oracle_page.locator('select#sView1\\:r1\\:0\\:country\\:\\:content')
+    country_select.wait_for(state="visible", timeout=15000)
+    country_select.select_option(value="OM")
+    time.sleep(2)
+
+    # NOW fill email
+    logger.info(f"{runner_id}: Filling registration form with email: {email}")
     email_input = oracle_page.locator('input#sView1\\:r1\\:0\\:email\\:\\:content')
     email_input.wait_for(state="visible", timeout=15000)
     email_input.fill(email)
@@ -147,11 +154,6 @@ def create_oracle_account(page, email, password, runner_id):
     retype_password_input.fill(password)
     time.sleep(1)
 
-    # Select country - Oman (OM)
-    country_select = oracle_page.locator('select#sView1\\:r1\\:0\\:country\\:\\:content')
-    country_select.select_option(value="OM")
-    time.sleep(1)
-
     # Fill personal details with random data
     first_name = generate_random_string(8)
     last_name = generate_random_string(8)
@@ -162,6 +164,7 @@ def create_oracle_account(page, email, password, runner_id):
     city = generate_random_string(8)
     postal_code = generate_random_numbers(8)
 
+    logger.info(f"{runner_id}: Filling personal details...")
     oracle_page.locator('input#sView1\\:r1\\:0\\:firstName\\:\\:content').fill(first_name)
     time.sleep(0.5)
     oracle_page.locator('input#sView1\\:r1\\:0\\:lastName\\:\\:content').fill(last_name)
