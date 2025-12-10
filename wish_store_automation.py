@@ -183,19 +183,16 @@ def fill_address_form(page, country, phone_number, runner_id):
         logger.error(f"{runner_id}: Error entering street address: {e}")
         return False
 
-    # Select country
+    # Select country (hardcoded to Nigeria with value="NG")
     try:
         # Use data-cy attribute for more reliable selection
         country_select = page.locator('select[data-cy="country-select"]').first
         # Wait a bit for the page to fully render
         time.sleep(0.5)
-        # Click on the select dropdown first to open it
-        country_select.click()
-        time.sleep(0.3)
-        # Then select the country by label
-        country_select.select_option(label=country)
+        # Select Nigeria by value (NG)
+        country_select.select_option(value="NG")
         time.sleep(random.uniform(0.2, 0.4))
-        logger.info(f"{runner_id}: Selected country: {country}")
+        logger.info(f"{runner_id}: Selected country: Nigeria (NG)")
     except Exception as e:
         logger.error(f"{runner_id}: Error selecting country: {e}")
         return False
