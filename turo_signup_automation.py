@@ -126,7 +126,7 @@ def human_like_click(page, locator):
         locator.click()
 
 
-def turo_signup_automation(email, password, country, phone_number, runner_id, progress_bar, headless=True):
+def turo_signup_automation(email, password, country, phone_number, runner_id, progress_bar):
     """
     Automates Turo signup process
     """
@@ -135,7 +135,7 @@ def turo_signup_automation(email, password, country, phone_number, runner_id, pr
 
     with sync_playwright() as playwright:
         try:
-            browser = playwright.chromium.launch(headless=headless)  # Headless mode - no visible browser
+            browser = playwright.chromium.launch(headless=False)  # True False Headless mode - no visible browser
             context = browser.new_context()
             stealth_sync(context)
             page = context.new_page()
@@ -145,52 +145,24 @@ def turo_signup_automation(email, password, country, phone_number, runner_id, pr
             page.goto(signup_url, wait_until="networkidle")
             time.sleep(random.uniform(3, 4))
 
-            logger.info(f"{runner_id}: Page loaded. URL: {page.url}")
+            # Step 2: Click "Continue with email" and wait for form
+            logger.info(f"{runner_id}: Clicking 'Continue with email'...")
+            continue_email_btn = page.locator('button:has-text("Continue with email")')
+            continue_email_btn.wait_for(state="visible", timeout=15000)
+            time.sleep(random.uniform(0.5, 1))
 
-            # Step 2: Check if form fields are already visible, if not click "Continue with email"
+            # Click button
+            continue_email_btn.click()
+            logger.info(f"{runner_id}: Button clicked, waiting for form fields...")
+
+            # Wait for first name input to appear (proves form loaded)
             first_name_input = page.locator('input[data-testid="firstName"]')
-
-            # Check if first name field is already visible
-            is_form_visible = False
-            try:
-                is_form_visible = first_name_input.is_visible(timeout=3000)
-                logger.info(f"{runner_id}: First name field visible: {is_form_visible}")
-            except:
-                logger.info(f"{runner_id}: First name field not immediately visible")
-
-            if not is_form_visible:
-                logger.info(f"{runner_id}: Form not visible, looking for 'Continue with email' button...")
-
-                # Try to find and click the button
-                try:
-                    continue_email_btn = page.locator('button:has-text("Continue with email")').first
-
-                    if continue_email_btn.count() > 0:
-                        logger.info(f"{runner_id}: Found 'Continue with email' button, clicking...")
-                        continue_email_btn.wait_for(state="visible", timeout=10000)
-                        time.sleep(random.uniform(0.5, 1))
-
-                        # Click and wait for navigation
-                        continue_email_btn.click()
-                        logger.info(f"{runner_id}: Button clicked, waiting for form...")
-
-                        # Wait for the form to appear
-                        page.wait_for_load_state("networkidle")
-                        time.sleep(random.uniform(2, 3))
-                        logger.info(f"{runner_id}: After click, URL: {page.url}")
-                    else:
-                        logger.warning(f"{runner_id}: 'Continue with email' button not found")
-                        time.sleep(2)
-                except Exception as e:
-                    logger.warning(f"{runner_id}: Error with button: {e}")
-                    time.sleep(2)
-            else:
-                logger.info(f"{runner_id}: Form already visible, skipping button click")
+            first_name_input.wait_for(state="visible", timeout=20000)
+            time.sleep(random.uniform(1, 2))
 
             # Step 3: Fill in first name (10 random characters)
             first_name = generate_random_name(10)
             logger.info(f"{runner_id}: Entering first name: {first_name}...")
-            first_name_input.wait_for(state="visible", timeout=20000)
             first_name_input.fill(first_name)
             time.sleep(random.uniform(0.5, 1))
 
@@ -277,13 +249,6 @@ def turo_signup_automation(email, password, country, phone_number, runner_id, pr
         except Exception as e:
             logger.error(f"{runner_id}: Automation failed - {e}")
             savecreated('failed', f"{email}:{password} - Error: {str(e)}")
-            # Take screenshot for debugging
-            try:
-                screenshot_path = f"error_{runner_id}_{int(time.time())}.png"
-                page.screenshot(path=screenshot_path)
-                logger.info(f"{runner_id}: Screenshot saved to {screenshot_path}")
-            except:
-                pass
             try:
                 browser.close()
             except:
