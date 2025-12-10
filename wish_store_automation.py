@@ -106,11 +106,11 @@ def solve_captcha_yescaptcha(image_base64):
 def human_like_type(page, locator, text):
     """Simulate human-like typing with random delays"""
     locator.click()
-    time.sleep(random.uniform(0.1, 0.3))
+    time.sleep(random.uniform(0.05, 0.1))
 
     for char in text:
         locator.type(char)
-        time.sleep(random.uniform(0.05, 0.15))
+        time.sleep(random.uniform(0.02, 0.05))
 
 
 def human_like_click(page, locator):
@@ -124,7 +124,7 @@ def human_like_click(page, locator):
 
             # Move mouse to element with slight delay
             page.mouse.move(x, y)
-            time.sleep(random.uniform(0.1, 0.3))
+            time.sleep(random.uniform(0.05, 0.1))
 
             # Click
             page.mouse.click(x, y)
@@ -155,7 +155,7 @@ def fill_address_form(page, country, phone_number, runner_id):
         first_name_input = page.locator('input.inputBase_1os68jb-o_O-input_sqerl5[placeholder="Enter your first name"]').first
         first_name_input.wait_for(state="visible", timeout=10000)
         human_like_type(page, first_name_input, first_name)
-        time.sleep(random.uniform(0.3, 0.6))
+        time.sleep(random.uniform(0.1, 0.2))
         logger.info(f"{runner_id}: First name: {first_name}")
     except Exception as e:
         logger.error(f"{runner_id}: Error entering first name: {e}")
@@ -166,7 +166,7 @@ def fill_address_form(page, country, phone_number, runner_id):
         last_name_input = page.locator('input.inputBase_1os68jb-o_O-input_sqerl5[placeholder="Enter your last name"]').first
         last_name_input.wait_for(state="visible", timeout=10000)
         human_like_type(page, last_name_input, last_name)
-        time.sleep(random.uniform(0.3, 0.6))
+        time.sleep(random.uniform(0.1, 0.2))
         logger.info(f"{runner_id}: Last name: {last_name}")
     except Exception as e:
         logger.error(f"{runner_id}: Error entering last name: {e}")
@@ -177,7 +177,7 @@ def fill_address_form(page, country, phone_number, runner_id):
         address_input = page.locator('input.inputBase_1os68jb-o_O-input_sqerl5[placeholder="Street address 1"]').first
         address_input.wait_for(state="visible", timeout=10000)
         human_like_type(page, address_input, street_address)
-        time.sleep(random.uniform(0.3, 0.6))
+        time.sleep(random.uniform(0.1, 0.2))
         logger.info(f"{runner_id}: Street address: {street_address}")
     except Exception as e:
         logger.error(f"{runner_id}: Error entering street address: {e}")
@@ -187,8 +187,12 @@ def fill_address_form(page, country, phone_number, runner_id):
     try:
         country_select = page.locator('select.root_1axnkx7-o_O-style_bc4egv[data-cy="country-select"]').first
         country_select.wait_for(state="visible", timeout=10000)
+        # Click on the select dropdown first to open it
+        country_select.click()
+        time.sleep(0.3)
+        # Then select the country by label
         country_select.select_option(label=country)
-        time.sleep(random.uniform(0.5, 1.0))
+        time.sleep(random.uniform(0.2, 0.4))
         logger.info(f"{runner_id}: Selected country: {country}")
     except Exception as e:
         logger.error(f"{runner_id}: Error selecting country: {e}")
@@ -199,7 +203,7 @@ def fill_address_form(page, country, phone_number, runner_id):
         state_input = page.locator('input.inputBase_1os68jb-o_O-input_sqerl5[placeholder="Enter your state"]').first
         state_input.wait_for(state="visible", timeout=10000)
         human_like_type(page, state_input, state)
-        time.sleep(random.uniform(0.3, 0.6))
+        time.sleep(random.uniform(0.1, 0.2))
         logger.info(f"{runner_id}: State: {state}")
     except Exception as e:
         logger.error(f"{runner_id}: Error entering state: {e}")
@@ -210,7 +214,7 @@ def fill_address_form(page, country, phone_number, runner_id):
         city_input = page.locator('input.inputBase_1os68jb-o_O-input_sqerl5[placeholder="Select a city"]').first
         city_input.wait_for(state="visible", timeout=10000)
         human_like_type(page, city_input, city)
-        time.sleep(random.uniform(0.3, 0.6))
+        time.sleep(random.uniform(0.1, 0.2))
         logger.info(f"{runner_id}: City: {city}")
     except Exception as e:
         logger.error(f"{runner_id}: Error entering city: {e}")
@@ -221,7 +225,7 @@ def fill_address_form(page, country, phone_number, runner_id):
         postal_input = page.locator('input.inputBase_1os68jb-o_O-input_sqerl5[placeholder="Enter your postal code"]').first
         postal_input.wait_for(state="visible", timeout=10000)
         human_like_type(page, postal_input, postal_code)
-        time.sleep(random.uniform(0.3, 0.6))
+        time.sleep(random.uniform(0.1, 0.2))
         logger.info(f"{runner_id}: Postal code: {postal_code}")
     except Exception as e:
         logger.error(f"{runner_id}: Error entering postal code: {e}")
@@ -232,7 +236,7 @@ def fill_address_form(page, country, phone_number, runner_id):
         phone_input = page.locator('div.inputContainer_dmgwvy input[type="tel"].inputBase_1os68jb-o_O-input_sqerl5').first
         phone_input.wait_for(state="visible", timeout=10000)
         human_like_type(page, phone_input, phone_number)
-        time.sleep(random.uniform(0.3, 0.6))
+        time.sleep(random.uniform(0.1, 0.2))
         logger.info(f"{runner_id}: Phone number: {phone_number}")
     except Exception as e:
         logger.error(f"{runner_id}: Error entering phone number: {e}")
@@ -267,7 +271,7 @@ def wish_store_automation(email, password, store_password, country, phone_number
             # Navigate to Wish merchant signup
             logger.info(f"{runner_id}: Navigating to Wish merchant signup...")
             page.goto(url, wait_until="domcontentloaded")
-            time.sleep(3)
+            time.sleep(2)
 
             # Step 1: Generate and fill store name (12 random characters)
             store_name = generate_random_store_name(12)
@@ -277,7 +281,7 @@ def wish_store_automation(email, password, store_password, country, phone_number
                 store_name_input = page.locator('input.inputBase_1os68jb-o_O-input_sqerl5[placeholder="Create a name for your store"]').first
                 store_name_input.wait_for(state="visible", timeout=15000)
                 human_like_type(page, store_name_input, store_name)
-                time.sleep(random.uniform(0.5, 1.0))
+                time.sleep(random.uniform(0.1, 0.2))
             except Exception as e:
                 logger.error(f"{runner_id}: Error entering store name: {e}")
                 browser.close()
@@ -291,7 +295,7 @@ def wish_store_automation(email, password, store_password, country, phone_number
                 email_input = page.locator('input.inputBase_1os68jb-o_O-input_sqerl5[placeholder="Enter your email address"]').first
                 email_input.wait_for(state="visible", timeout=10000)
                 human_like_type(page, email_input, email)
-                time.sleep(random.uniform(0.5, 1.0))
+                time.sleep(random.uniform(0.1, 0.2))
             except Exception as e:
                 logger.error(f"{runner_id}: Error entering email: {e}")
                 browser.close()
@@ -305,7 +309,7 @@ def wish_store_automation(email, password, store_password, country, phone_number
                 password_input = page.locator('input[type="password"].inputBase_1os68jb-o_O-input_sqerl5[placeholder="Create a password"]').first
                 password_input.wait_for(state="visible", timeout=10000)
                 human_like_type(page, password_input, store_password)
-                time.sleep(random.uniform(0.5, 1.0))
+                time.sleep(random.uniform(0.1, 0.2))
             except Exception as e:
                 logger.error(f"{runner_id}: Error entering password: {e}")
                 browser.close()
@@ -368,17 +372,17 @@ def wish_store_automation(email, password, store_password, country, phone_number
                     captcha_input.wait_for(state="visible", timeout=10000)
                     captcha_input.clear()
                     human_like_type(page, captcha_input, captcha_solution)
-                    time.sleep(random.uniform(0.5, 1.0))
+                    time.sleep(random.uniform(0.2, 0.4))
 
                     # Click Continue button
                     logger.info(f"{runner_id}: Clicking Continue button...")
                     continue_button = page.locator('button.root_1vrerfk-o_O-rootEnabled_1d8zzey').first
                     continue_button.wait_for(state="visible", timeout=10000)
-                    time.sleep(random.uniform(0.5, 1.5))
+                    time.sleep(random.uniform(0.2, 0.4))
                     human_like_click(page, continue_button)
 
                     # Wait for response
-                    time.sleep(3)
+                    time.sleep(2)
 
                     # Check for "Captcha code does not match" alert
                     try:
@@ -428,7 +432,7 @@ def wish_store_automation(email, password, store_password, country, phone_number
 
             # Step 5: Wait for page to proceed and check for errors
             logger.info(f"{runner_id}: Waiting for page to load after captcha...")
-            time.sleep(5)
+            time.sleep(3)
 
             # Check current URL
             current_url = page.url
@@ -437,7 +441,7 @@ def wish_store_automation(email, password, store_password, country, phone_number
             # Check if there's an error message (but ignore "This field is required")
             try:
                 error_message = page.locator('div[class*="error"], span[class*="error"]').first
-                if error_message.is_visible(timeout=2000):
+                if error_message.is_visible(timeout=1000):
                     error_text = error_message.inner_text()
 
                     # Ignore "This field is required" error - continue with address form
@@ -472,10 +476,10 @@ def wish_store_automation(email, password, store_password, country, phone_number
                 try:
                     send_code_button = page.locator('button.root_1vrerfk-o_O-rootEnabled_1d8zzey:has-text("Send verification code")').first
                     send_code_button.wait_for(state="visible", timeout=10000)
-                    time.sleep(random.uniform(0.5, 1.5))
+                    time.sleep(random.uniform(0.2, 0.4))
                     human_like_click(page, send_code_button)
                     logger.info(f"{runner_id}: Clicked 'Send verification code' button")
-                    time.sleep(3)
+                    time.sleep(2)
                 except Exception as e:
                     logger.error(f"{runner_id}: Error clicking 'Send verification code' on iteration {iteration}: {e}")
                     savecreated('failed', f"{email} - Error clicking 'Send verification code' on iteration {iteration}: {str(e)}")
@@ -488,7 +492,7 @@ def wish_store_automation(email, password, store_password, country, phone_number
                 if iteration < 5:
                     logger.info(f"{runner_id}: Refreshing page for next iteration...")
                     page.reload(wait_until="domcontentloaded")
-                    time.sleep(3)
+                    time.sleep(2)
 
             # All iterations completed successfully
             logger.success(f"{runner_id}: Completed all 5 phone verification attempts for {email}")
