@@ -5,6 +5,9 @@ This script automates the creation of Wish merchant stores using Playwright with
 ## Features
 
 - 🚀 **Automated Store Creation**: Automatically creates Wish merchant stores with random names
+- 📋 **Complete Address Form Filling**: Auto-fills personal information with random data
+- 📞 **Phone Verification Loop**: Sends verification code 5 times per account
+- 🌍 **Country Selection**: Automatically selects country from configuration
 - 🔄 **Multi-threading Support**: Process multiple accounts concurrently
 - 🤖 **Captcha Solving**: Integrated YesCaptcha API for automatic captcha solving
 - 📊 **Progress Tracking**: Real-time progress bar showing completion status
@@ -41,6 +44,22 @@ Contains a single password that will be used for all Wish merchant stores:
 YourStorePassword123!
 ```
 
+### 3. `country.txt`
+Contains a single country name that will be selected for all stores:
+```
+Nigeria
+```
+**Note**: Country name must match exactly as it appears in the Wish country dropdown (e.g., "Nigeria", "United States", "United Kingdom").
+
+### 4. `numbers.txt`
+Contains phone numbers (one per line):
+```
++2348012345678
++2348023456789
++2348034567890
+```
+**Note**: If you have more accounts than phone numbers, phone numbers will be cycled (reused).
+
 ## YesCaptcha API Configuration
 
 The script uses YesCaptcha API for solving captchas. The API key is configured in the script:
@@ -51,6 +70,8 @@ YESCAPTCHA_CLIENT_KEY = "8d381f04402598ed227557a6acb91a6da1a909c375946"
 Make sure you have sufficient balance in your YesCaptcha account.
 
 ## How It Works
+
+### Phase 1: Initial Store Setup
 
 1. **Opens Wish Merchant Signup**: Navigates to `https://merchant.wish.com/open-express?r=802OI`
 
@@ -66,15 +87,41 @@ Make sure you have sufficient balance in your YesCaptcha account.
    - Sends to YesCaptcha API for OCR
    - Enters the solved captcha text
 
-6. **Submits Form**: Clicks the Continue button
+6. **Submits Initial Form**: Clicks the Continue button
 
-7. **Logs Results**: Saves successful creations to `completed.txt` and failures to `failed.txt`
+### Phase 2: Address & Phone Verification Loop (5 iterations)
+
+For each account, the script performs the following 5 times:
+
+7. **Fills Personal Information**:
+   - **First Name**: Random 8 characters (letters)
+   - **Last Name**: Random 8 characters (letters)
+   - **Street Address**: Random 10 characters (letters)
+
+8. **Selects Country**: Uses country from `country.txt`
+
+9. **Fills Location Details**:
+   - **State**: Random 8 characters (letters)
+   - **City**: Random 8 characters (letters)
+   - **Postal Code**: Random 6 digits
+
+10. **Enters Phone Number**: Uses phone number from `numbers.txt`
+
+11. **Clicks "Send verification code"**: Triggers SMS verification
+
+12. **Refreshes Page**: Reloads the page to repeat the process (except on the 5th iteration)
+
+13. **Repeats Steps 7-12**: Continues for a total of 5 iterations
+
+14. **Logs Results**: After all 5 iterations, saves results to `completed.txt` and failures to `failed.txt`
 
 ## Usage
 
 1. Make sure all required files are set up:
    - `accounts.txt` with your email accounts
    - `password.txt` with your store password
+   - `country.txt` with your target country
+   - `numbers.txt` with phone numbers
 
 2. Run the script:
    ```bash
@@ -83,33 +130,43 @@ Make sure you have sufficient balance in your YesCaptcha account.
 
 3. When prompted, enter the number of concurrent workers:
    ```
-   Number of concurrent workers: 5
+   Number of concurrent workers: 3
    ```
 
 4. The script will:
    - Process all accounts from `accounts.txt`
+   - Pair each account with a phone number from `numbers.txt`
+   - Complete initial signup with captcha solving
+   - Fill address form and send verification code 5 times per account
    - Run multiple workers in parallel
    - Show progress bar with completion status
    - Save results to `completed.txt` and `failed.txt`
 
 ## Output Files
 
-- **`completed.txt`**: Successfully created stores
+- **`completed.txt`**: Successfully processed accounts with all 5 verification attempts
   ```
-  email@example.com:password - Store: RandomName12
+  email@example.com:password - Store: RandomName12 - Phone: +2348012345678
   ```
 
 - **`failed.txt`**: Failed attempts with error messages
   ```
-  email@example.com - Error: Captcha solving failed
+  email@example.com - Error: Failed to fill address form on iteration 3
+  email2@example.com - Error: Captcha solving failed
   ```
 
 ## Features in Detail
 
-### Random Store Name Generation
-- Generates 12 random characters (letters + numbers)
-- Unique for each store creation attempt
-- Example: `aB3xT9kL2pQ1`
+### Random Data Generation
+- **Store Name**: 12 random characters (letters + numbers) - Example: `aB3xT9kL2pQ1`
+- **First Name**: 8 random letters - Example: `JhFkTpQw`
+- **Last Name**: 8 random letters - Example: `MnBvCxZa`
+- **Street Address**: 10 random letters - Example: `KjHgFdSaWq`
+- **State**: 8 random letters - Example: `LpMnBvCx`
+- **City**: 8 random letters - Example: `QwErTyUi`
+- **Postal Code**: 6 random digits - Example: `123456`
+
+All data is generated uniquely for each iteration to avoid detection.
 
 ### Human-like Behavior
 - Random typing delays between characters
@@ -124,6 +181,21 @@ Make sure you have sufficient balance in your YesCaptcha account.
 4. Sends to YesCaptcha API with task type `ImageToTextTaskMuggle`
 5. Polls API every 2 seconds for result (max 60 seconds)
 6. Returns solved text and fills into form
+
+### Phone Verification Loop
+Each account goes through 5 iterations of phone verification:
+1. **Iteration 1**: Fill form + Send verification code
+2. **Refresh**: Page reloads
+3. **Iteration 2**: Fill form again (same phone) + Send verification code
+4. **Refresh**: Page reloads
+5. **Iteration 3**: Fill form again (same phone) + Send verification code
+6. **Refresh**: Page reloads
+7. **Iteration 4**: Fill form again (same phone) + Send verification code
+8. **Refresh**: Page reloads
+9. **Iteration 5**: Fill form again (same phone) + Send verification code
+10. **Complete**: Close browser and move to next account
+
+This process helps verify the phone number multiple times as per Wish's requirements.
 
 ### Thread-Safe Operations
 - File operations use locks to prevent race conditions
@@ -167,12 +239,35 @@ Make sure you have sufficient balance in your YesCaptcha account.
 ```
 Wish Merchant Store Setup Automation Script
 ==================================================
-Loaded 10 accounts from accounts.txt
+Loaded 5 accounts from accounts.txt
 Loaded store password from password.txt
-Created 10 tasks
-Number of concurrent workers: 3
+Loaded country: Nigeria
+Loaded 3 phone numbers from numbers.txt
+Created 5 tasks
+Accounts: 5, Phone numbers: 3
+Number of concurrent workers: 2
 
-Progress: 100%|████████████████████████| 10/10 [05:32<00:00, 33.2s/account]
+INFO: Worker-1: Starting automation for email1@example.com with phone +2348012345678
+INFO: Worker-2: Starting automation for email2@example.com with phone +2348023456789
+INFO: Worker-1: Generated store name: aB3xT9kL2pQ1
+INFO: Worker-1: Entering email: email1@example.com
+INFO: Worker-1: Captcha solved: ABC123
+INFO: Worker-1: Clicking Continue button...
+INFO: Worker-1: Starting phone verification loop (5 iterations)...
+INFO: Worker-1: === Iteration 1/5 ===
+INFO: Worker-1: Filling address form...
+INFO: Worker-1: First name: JhFkTpQw
+INFO: Worker-1: Last name: MnBvCxZa
+INFO: Worker-1: Selected country: Nigeria
+INFO: Worker-1: Phone number: +2348012345678
+INFO: Worker-1: Clicked 'Send verification code' button
+INFO: Worker-1: Refreshing page for next iteration...
+INFO: Worker-1: === Iteration 2/5 ===
+...
+INFO: Worker-1: === Iteration 5/5 ===
+SUCCESS: Worker-1: Completed all 5 phone verification attempts for email1@example.com
+
+Progress: 100%|████████████████████████| 5/5 [15:45<00:00, 189s/account]
 
 Script finished!
 Press Enter to exit...

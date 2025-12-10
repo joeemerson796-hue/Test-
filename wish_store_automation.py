@@ -36,6 +36,16 @@ def generate_random_store_name(length=12):
     return ''.join(random.choice(characters) for _ in range(length))
 
 
+def generate_random_string(length):
+    """Generate a random string with letters only"""
+    return ''.join(random.choice(string.ascii_letters) for _ in range(length))
+
+
+def generate_random_numbers(length):
+    """Generate a random numeric string"""
+    return ''.join(random.choice(string.digits) for _ in range(length))
+
+
 def solve_captcha_yescaptcha(image_base64):
     """
     Solve captcha using YesCaptcha API
@@ -126,7 +136,112 @@ def human_like_click(page, locator):
         locator.click()
 
 
-def wish_store_automation(email, password, store_password, runner_id, progress_bar):
+def fill_address_form(page, country, phone_number, runner_id):
+    """
+    Fill the address form with personal and contact information
+    """
+    # Generate random data
+    first_name = generate_random_string(8)
+    last_name = generate_random_string(8)
+    street_address = generate_random_string(10)
+    state = generate_random_string(8)
+    city = generate_random_string(8)
+    postal_code = generate_random_numbers(6)
+
+    logger.info(f"{runner_id}: Filling address form...")
+
+    # Fill first name
+    try:
+        first_name_input = page.locator('input.inputBase_1os68jb-o_O-input_sqerl5[placeholder="Enter your first name"]').first
+        first_name_input.wait_for(state="visible", timeout=10000)
+        human_like_type(page, first_name_input, first_name)
+        time.sleep(random.uniform(0.3, 0.6))
+        logger.info(f"{runner_id}: First name: {first_name}")
+    except Exception as e:
+        logger.error(f"{runner_id}: Error entering first name: {e}")
+        return False
+
+    # Fill last name
+    try:
+        last_name_input = page.locator('input.inputBase_1os68jb-o_O-input_sqerl5[placeholder="Enter your last name"]').first
+        last_name_input.wait_for(state="visible", timeout=10000)
+        human_like_type(page, last_name_input, last_name)
+        time.sleep(random.uniform(0.3, 0.6))
+        logger.info(f"{runner_id}: Last name: {last_name}")
+    except Exception as e:
+        logger.error(f"{runner_id}: Error entering last name: {e}")
+        return False
+
+    # Fill street address
+    try:
+        address_input = page.locator('input.inputBase_1os68jb-o_O-input_sqerl5[placeholder="Street address 1"]').first
+        address_input.wait_for(state="visible", timeout=10000)
+        human_like_type(page, address_input, street_address)
+        time.sleep(random.uniform(0.3, 0.6))
+        logger.info(f"{runner_id}: Street address: {street_address}")
+    except Exception as e:
+        logger.error(f"{runner_id}: Error entering street address: {e}")
+        return False
+
+    # Select country
+    try:
+        country_select = page.locator('select.root_1axnkx7-o_O-style_bc4egv[data-cy="country-select"]').first
+        country_select.wait_for(state="visible", timeout=10000)
+        country_select.select_option(label=country)
+        time.sleep(random.uniform(0.5, 1.0))
+        logger.info(f"{runner_id}: Selected country: {country}")
+    except Exception as e:
+        logger.error(f"{runner_id}: Error selecting country: {e}")
+        return False
+
+    # Fill state
+    try:
+        state_input = page.locator('input.inputBase_1os68jb-o_O-input_sqerl5[placeholder="Enter your state"]').first
+        state_input.wait_for(state="visible", timeout=10000)
+        human_like_type(page, state_input, state)
+        time.sleep(random.uniform(0.3, 0.6))
+        logger.info(f"{runner_id}: State: {state}")
+    except Exception as e:
+        logger.error(f"{runner_id}: Error entering state: {e}")
+        return False
+
+    # Fill city
+    try:
+        city_input = page.locator('input.inputBase_1os68jb-o_O-input_sqerl5[placeholder="Select a city"]').first
+        city_input.wait_for(state="visible", timeout=10000)
+        human_like_type(page, city_input, city)
+        time.sleep(random.uniform(0.3, 0.6))
+        logger.info(f"{runner_id}: City: {city}")
+    except Exception as e:
+        logger.error(f"{runner_id}: Error entering city: {e}")
+        return False
+
+    # Fill postal code
+    try:
+        postal_input = page.locator('input.inputBase_1os68jb-o_O-input_sqerl5[placeholder="Enter your postal code"]').first
+        postal_input.wait_for(state="visible", timeout=10000)
+        human_like_type(page, postal_input, postal_code)
+        time.sleep(random.uniform(0.3, 0.6))
+        logger.info(f"{runner_id}: Postal code: {postal_code}")
+    except Exception as e:
+        logger.error(f"{runner_id}: Error entering postal code: {e}")
+        return False
+
+    # Fill phone number
+    try:
+        phone_input = page.locator('div.inputContainer_dmgwvy input[type="tel"].inputBase_1os68jb-o_O-input_sqerl5').first
+        phone_input.wait_for(state="visible", timeout=10000)
+        human_like_type(page, phone_input, phone_number)
+        time.sleep(random.uniform(0.3, 0.6))
+        logger.info(f"{runner_id}: Phone number: {phone_number}")
+    except Exception as e:
+        logger.error(f"{runner_id}: Error entering phone number: {e}")
+        return False
+
+    return True
+
+
+def wish_store_automation(email, password, store_password, country, phone_number, runner_id, progress_bar):
     """
     Automates Wish merchant store setup
     """
@@ -260,12 +375,12 @@ def wish_store_automation(email, password, store_password, runner_id, progress_b
                 time.sleep(random.uniform(0.5, 1.5))
                 human_like_click(page, continue_button)
 
-                # Wait to see result
+                # Wait for next page to load
                 time.sleep(5)
 
-                # Check for success or errors
+                # Check for errors on initial signup
                 current_url = page.url
-                logger.info(f"{runner_id}: Current URL after submit: {current_url}")
+                logger.info(f"{runner_id}: Current URL after Continue: {current_url}")
 
                 # Check if there's an error message
                 try:
@@ -274,13 +389,12 @@ def wish_store_automation(email, password, store_password, runner_id, progress_b
                         error_text = error_message.inner_text()
                         logger.warning(f"{runner_id}: Error message found: {error_text}")
                         savecreated('failed', f"{email} - Error: {error_text}")
-                    else:
-                        logger.success(f"{runner_id}: Store created successfully!")
-                        savecreated('completed', f"{email}:{password} - Store: {store_name}")
+                        browser.close()
+                        if progress_bar:
+                            progress_bar.update(1)
+                        return
                 except:
-                    # No error found, assume success
-                    logger.success(f"{runner_id}: Store created successfully!")
-                    savecreated('completed', f"{email}:{password} - Store: {store_name}")
+                    pass
 
             except Exception as e:
                 logger.error(f"{runner_id}: Error clicking Continue: {e}")
@@ -290,7 +404,48 @@ def wish_store_automation(email, password, store_password, runner_id, progress_b
                     progress_bar.update(1)
                 return
 
-            time.sleep(3)
+            # Step 6: Phone verification loop (5 times)
+            logger.info(f"{runner_id}: Starting phone verification loop (5 iterations)...")
+
+            for iteration in range(1, 6):  # 5 iterations
+                logger.info(f"{runner_id}: === Iteration {iteration}/5 ===")
+
+                # Fill address form
+                if not fill_address_form(page, country, phone_number, runner_id):
+                    logger.error(f"{runner_id}: Failed to fill address form on iteration {iteration}")
+                    savecreated('failed', f"{email} - Failed to fill address form on iteration {iteration}")
+                    browser.close()
+                    if progress_bar:
+                        progress_bar.update(1)
+                    return
+
+                # Click "Send verification code" button
+                try:
+                    send_code_button = page.locator('button.root_1vrerfk-o_O-rootEnabled_1d8zzey:has-text("Send verification code")').first
+                    send_code_button.wait_for(state="visible", timeout=10000)
+                    time.sleep(random.uniform(0.5, 1.5))
+                    human_like_click(page, send_code_button)
+                    logger.info(f"{runner_id}: Clicked 'Send verification code' button")
+                    time.sleep(3)
+                except Exception as e:
+                    logger.error(f"{runner_id}: Error clicking 'Send verification code' on iteration {iteration}: {e}")
+                    savecreated('failed', f"{email} - Error clicking 'Send verification code' on iteration {iteration}: {str(e)}")
+                    browser.close()
+                    if progress_bar:
+                        progress_bar.update(1)
+                    return
+
+                # If not the last iteration, refresh the page
+                if iteration < 5:
+                    logger.info(f"{runner_id}: Refreshing page for next iteration...")
+                    page.reload(wait_until="domcontentloaded")
+                    time.sleep(3)
+
+            # All iterations completed successfully
+            logger.success(f"{runner_id}: Completed all 5 phone verification attempts for {email}")
+            savecreated('completed', f"{email}:{password} - Store: {store_name} - Phone: {phone_number}")
+
+            time.sleep(2)
             browser.close()
             if progress_bar:
                 progress_bar.update(1)
@@ -306,14 +461,14 @@ def wish_store_automation(email, password, store_password, runner_id, progress_b
                 progress_bar.update(1)
 
 
-def run_worker(index, email, password, store_password, progress_bar):
+def run_worker(index, email, password, store_password, country, phone_number, progress_bar):
     """
     Worker function to process a single account
     """
     runner_id = f"Worker-{index + 1}"
 
-    logger.info(f"{runner_id}: Starting automation for {email}")
-    wish_store_automation(email, password, store_password, runner_id, progress_bar)
+    logger.info(f"{runner_id}: Starting automation for {email} with phone {phone_number}")
+    wish_store_automation(email, password, store_password, country, phone_number, runner_id, progress_bar)
 
 
 if __name__ == "__main__":
@@ -352,12 +507,41 @@ if __name__ == "__main__":
         logger.error("No password found in password.txt")
         exit(1)
 
-    # Create tasks
+    # Load country from file (single country for all accounts)
+    try:
+        with open("country.txt", "r", encoding="utf8") as file:
+            country = file.read().strip()
+        logger.info(f"Loaded country: {country}")
+    except FileNotFoundError:
+        logger.error("'country.txt' not found. Create a file with the country name (e.g., Nigeria)")
+        exit(1)
+
+    if not country:
+        logger.error("No country found in country.txt")
+        exit(1)
+
+    # Load phone numbers from file
+    try:
+        with open("numbers.txt", "r", encoding="utf8") as file:
+            phone_numbers = [line.strip() for line in file if line.strip()]
+        logger.info(f"Loaded {len(phone_numbers)} phone numbers from numbers.txt")
+    except FileNotFoundError:
+        logger.error("'numbers.txt' not found. Create a file with phone numbers (one per line)")
+        exit(1)
+
+    if len(phone_numbers) == 0:
+        logger.error("No phone numbers loaded. Please add phone numbers to numbers.txt")
+        exit(1)
+
+    # Create tasks (pair accounts with phone numbers)
     tasks = []
     for i, (email, password) in enumerate(accounts):
-        tasks.append((i, email, password, store_password))
+        # Cycle through phone numbers if more accounts than phones
+        phone_number = phone_numbers[i % len(phone_numbers)]
+        tasks.append((i, email, password, store_password, country, phone_number))
 
     logger.info(f"Created {len(tasks)} tasks")
+    logger.info(f"Accounts: {len(accounts)}, Phone numbers: {len(phone_numbers)}")
 
     # Ask for number of workers
     num_workers = int(input('Number of concurrent workers: '))
@@ -366,7 +550,7 @@ if __name__ == "__main__":
     with tqdm(total=len(tasks), desc="Progress", unit="account") as progress_bar:
         # Execute workers
         with ThreadPoolExecutor(max_workers=num_workers) as executor:
-            executor.map(lambda task: run_worker(task[0], task[1], task[2], task[3], progress_bar), tasks)
+            executor.map(lambda task: run_worker(task[0], task[1], task[2], task[3], task[4], task[5], progress_bar), tasks)
 
     logger.success("Script finished!")
     input('Press Enter to exit...')
