@@ -30,6 +30,26 @@ def savecreated(filename, message):
             file.writelines(message + '\n')
 
 
+def remove_account_from_file(email):
+    """Remove successfully created account from accounts.txt"""
+    with file_lock:
+        try:
+            # Read all accounts
+            with open("accounts.txt", "r", encoding="utf8") as file:
+                lines = file.readlines()
+
+            # Filter out the successful account
+            updated_lines = [line for line in lines if not line.strip().startswith(email)]
+
+            # Write back to file
+            with open("accounts.txt", "w", encoding="utf8") as file:
+                file.writelines(updated_lines)
+
+            logger.info(f"Removed {email} from accounts.txt")
+        except Exception as e:
+            logger.error(f"Error removing account from file: {e}")
+
+
 def generate_random_store_name(length=12):
     """Generate a random store name with letters and numbers"""
     characters = string.ascii_letters + string.digits
@@ -106,11 +126,11 @@ def solve_captcha_yescaptcha(image_base64):
 def human_like_type(page, locator, text):
     """Simulate human-like typing with random delays"""
     locator.click()
-    time.sleep(random.uniform(0.05, 0.1))
+    time.sleep(random.uniform(0.02, 0.05))
 
     for char in text:
         locator.type(char)
-        time.sleep(random.uniform(0.02, 0.05))
+        time.sleep(random.uniform(0.01, 0.02))
 
 
 def human_like_click(page, locator):
@@ -124,7 +144,7 @@ def human_like_click(page, locator):
 
             # Move mouse to element with slight delay
             page.mouse.move(x, y)
-            time.sleep(random.uniform(0.05, 0.1))
+            time.sleep(random.uniform(0.02, 0.05))
 
             # Click
             page.mouse.click(x, y)
@@ -155,7 +175,6 @@ def fill_address_form(page, country, phone_number, runner_id):
         first_name_input = page.locator('input.inputBase_1os68jb-o_O-input_sqerl5[placeholder="Enter your first name"]').first
         first_name_input.wait_for(state="visible", timeout=10000)
         human_like_type(page, first_name_input, first_name)
-        time.sleep(random.uniform(0.1, 0.2))
         logger.info(f"{runner_id}: First name: {first_name}")
     except Exception as e:
         logger.error(f"{runner_id}: Error entering first name: {e}")
@@ -166,7 +185,6 @@ def fill_address_form(page, country, phone_number, runner_id):
         last_name_input = page.locator('input.inputBase_1os68jb-o_O-input_sqerl5[placeholder="Enter your last name"]').first
         last_name_input.wait_for(state="visible", timeout=10000)
         human_like_type(page, last_name_input, last_name)
-        time.sleep(random.uniform(0.1, 0.2))
         logger.info(f"{runner_id}: Last name: {last_name}")
     except Exception as e:
         logger.error(f"{runner_id}: Error entering last name: {e}")
@@ -177,7 +195,6 @@ def fill_address_form(page, country, phone_number, runner_id):
         address_input = page.locator('input.inputBase_1os68jb-o_O-input_sqerl5[placeholder="Street address 1"]').first
         address_input.wait_for(state="visible", timeout=10000)
         human_like_type(page, address_input, street_address)
-        time.sleep(random.uniform(0.1, 0.2))
         logger.info(f"{runner_id}: Street address: {street_address}")
     except Exception as e:
         logger.error(f"{runner_id}: Error entering street address: {e}")
@@ -188,10 +205,10 @@ def fill_address_form(page, country, phone_number, runner_id):
         # Use data-cy attribute for more reliable selection
         country_select = page.locator('select[data-cy="country-select"]').first
         # Wait a bit for the page to fully render
-        time.sleep(0.5)
+        time.sleep(0.3)
         # Select Nigeria by value (NG)
         country_select.select_option(value="NG")
-        time.sleep(random.uniform(0.2, 0.4))
+        time.sleep(0.1)
         logger.info(f"{runner_id}: Selected country: Nigeria (NG)")
     except Exception as e:
         logger.error(f"{runner_id}: Error selecting country: {e}")
@@ -202,7 +219,6 @@ def fill_address_form(page, country, phone_number, runner_id):
         state_input = page.locator('input.inputBase_1os68jb-o_O-input_sqerl5[placeholder="Enter your state"]').first
         state_input.wait_for(state="visible", timeout=10000)
         human_like_type(page, state_input, state)
-        time.sleep(random.uniform(0.1, 0.2))
         logger.info(f"{runner_id}: State: {state}")
     except Exception as e:
         logger.error(f"{runner_id}: Error entering state: {e}")
@@ -213,7 +229,6 @@ def fill_address_form(page, country, phone_number, runner_id):
         city_input = page.locator('input.inputBase_1os68jb-o_O-input_sqerl5[placeholder="Select a city"]').first
         city_input.wait_for(state="visible", timeout=10000)
         human_like_type(page, city_input, city)
-        time.sleep(random.uniform(0.1, 0.2))
         logger.info(f"{runner_id}: City: {city}")
     except Exception as e:
         logger.error(f"{runner_id}: Error entering city: {e}")
@@ -224,7 +239,6 @@ def fill_address_form(page, country, phone_number, runner_id):
         postal_input = page.locator('input.inputBase_1os68jb-o_O-input_sqerl5[placeholder="Enter your postal code"]').first
         postal_input.wait_for(state="visible", timeout=10000)
         human_like_type(page, postal_input, postal_code)
-        time.sleep(random.uniform(0.1, 0.2))
         logger.info(f"{runner_id}: Postal code: {postal_code}")
     except Exception as e:
         logger.error(f"{runner_id}: Error entering postal code: {e}")
@@ -235,7 +249,6 @@ def fill_address_form(page, country, phone_number, runner_id):
         phone_input = page.locator('div.inputContainer_dmgwvy input[type="tel"].inputBase_1os68jb-o_O-input_sqerl5').first
         phone_input.wait_for(state="visible", timeout=10000)
         human_like_type(page, phone_input, phone_number)
-        time.sleep(random.uniform(0.1, 0.2))
         logger.info(f"{runner_id}: Phone number: {phone_number}")
     except Exception as e:
         logger.error(f"{runner_id}: Error entering phone number: {e}")
@@ -270,7 +283,7 @@ def wish_store_automation(email, password, store_password, country, phone_number
             # Navigate to Wish merchant signup
             logger.info(f"{runner_id}: Navigating to Wish merchant signup...")
             page.goto(url, wait_until="domcontentloaded")
-            time.sleep(2)
+            time.sleep(1)
 
             # Step 1: Generate and fill store name (12 random characters)
             store_name = generate_random_store_name(12)
@@ -280,7 +293,6 @@ def wish_store_automation(email, password, store_password, country, phone_number
                 store_name_input = page.locator('input.inputBase_1os68jb-o_O-input_sqerl5[placeholder="Create a name for your store"]').first
                 store_name_input.wait_for(state="visible", timeout=15000)
                 human_like_type(page, store_name_input, store_name)
-                time.sleep(random.uniform(0.1, 0.2))
             except Exception as e:
                 logger.error(f"{runner_id}: Error entering store name: {e}")
                 browser.close()
@@ -294,7 +306,6 @@ def wish_store_automation(email, password, store_password, country, phone_number
                 email_input = page.locator('input.inputBase_1os68jb-o_O-input_sqerl5[placeholder="Enter your email address"]').first
                 email_input.wait_for(state="visible", timeout=10000)
                 human_like_type(page, email_input, email)
-                time.sleep(random.uniform(0.1, 0.2))
             except Exception as e:
                 logger.error(f"{runner_id}: Error entering email: {e}")
                 browser.close()
@@ -308,7 +319,6 @@ def wish_store_automation(email, password, store_password, country, phone_number
                 password_input = page.locator('input[type="password"].inputBase_1os68jb-o_O-input_sqerl5[placeholder="Create a password"]').first
                 password_input.wait_for(state="visible", timeout=10000)
                 human_like_type(page, password_input, store_password)
-                time.sleep(random.uniform(0.1, 0.2))
             except Exception as e:
                 logger.error(f"{runner_id}: Error entering password: {e}")
                 browser.close()
@@ -371,17 +381,17 @@ def wish_store_automation(email, password, store_password, country, phone_number
                     captcha_input.wait_for(state="visible", timeout=10000)
                     captcha_input.clear()
                     human_like_type(page, captcha_input, captcha_solution)
-                    time.sleep(random.uniform(0.2, 0.4))
+                    time.sleep(0.1)
 
                     # Click Continue button
                     logger.info(f"{runner_id}: Clicking Continue button...")
                     continue_button = page.locator('button.root_1vrerfk-o_O-rootEnabled_1d8zzey').first
                     continue_button.wait_for(state="visible", timeout=10000)
-                    time.sleep(random.uniform(0.2, 0.4))
+                    time.sleep(0.1)
                     human_like_click(page, continue_button)
 
                     # Wait for response
-                    time.sleep(2)
+                    time.sleep(1.5)
 
                     # Check for "Captcha code does not match" alert
                     try:
@@ -429,15 +439,21 @@ def wish_store_automation(email, password, store_password, country, phone_number
                     progress_bar.update(1)
                 return
 
+            # Account created successfully after captcha!
+            logger.success(f"{runner_id}: Account created successfully! Email: {email}, Store: {store_name}")
+            savecreated('created', f"{email}:{password} - Store: {store_name}")
+            remove_account_from_file(email)
+
             # Step 5: Wait for page to proceed and check for errors
             logger.info(f"{runner_id}: Waiting for page to load after captcha...")
-            time.sleep(3)
+            time.sleep(2)
 
             # Check current URL
             current_url = page.url
             logger.info(f"{runner_id}: Current URL after Continue: {current_url}")
 
             # Check if there's an error message (but ignore "This field is required")
+            # Note: Account is already created at this point, so we just log warnings
             try:
                 error_message = page.locator('div[class*="error"], span[class*="error"]').first
                 if error_message.is_visible(timeout=1000):
@@ -445,14 +461,9 @@ def wish_store_automation(email, password, store_password, country, phone_number
 
                     # Ignore "This field is required" error - continue with address form
                     if "This field is required" in error_text:
-                        logger.info(f"{runner_id}: 'This field is required' error detected, ignoring and proceeding to address form...")
+                        logger.info(f"{runner_id}: 'This field is required' error detected, proceeding to address form...")
                     else:
-                        logger.warning(f"{runner_id}: Error message found: {error_text}")
-                        savecreated('failed', f"{email} - Error: {error_text}")
-                        browser.close()
-                        if progress_bar:
-                            progress_bar.update(1)
-                        return
+                        logger.warning(f"{runner_id}: Warning message found (account already created): {error_text}")
             except:
                 pass
 
@@ -464,40 +475,33 @@ def wish_store_automation(email, password, store_password, country, phone_number
 
                 # Fill address form
                 if not fill_address_form(page, country, phone_number, runner_id):
-                    logger.error(f"{runner_id}: Failed to fill address form on iteration {iteration}")
-                    savecreated('failed', f"{email} - Failed to fill address form on iteration {iteration}")
-                    browser.close()
-                    if progress_bar:
-                        progress_bar.update(1)
-                    return
+                    logger.warning(f"{runner_id}: Failed to fill address form on iteration {iteration}, skipping phone verification")
+                    # Account is already created, just break the loop
+                    break
 
                 # Click "Send verification code" button
                 try:
                     send_code_button = page.locator('button.root_1vrerfk-o_O-rootEnabled_1d8zzey:has-text("Send verification code")').first
                     send_code_button.wait_for(state="visible", timeout=10000)
-                    time.sleep(random.uniform(0.2, 0.4))
+                    time.sleep(0.1)
                     human_like_click(page, send_code_button)
                     logger.info(f"{runner_id}: Clicked 'Send verification code' button")
-                    time.sleep(2)
+                    time.sleep(1)
                 except Exception as e:
-                    logger.error(f"{runner_id}: Error clicking 'Send verification code' on iteration {iteration}: {e}")
-                    savecreated('failed', f"{email} - Error clicking 'Send verification code' on iteration {iteration}: {str(e)}")
-                    browser.close()
-                    if progress_bar:
-                        progress_bar.update(1)
-                    return
+                    logger.warning(f"{runner_id}: Error clicking 'Send verification code' on iteration {iteration}: {e}")
+                    # Don't fail the whole process, account is already created
+                    break
 
                 # If not the last iteration, refresh the page
                 if iteration < 5:
                     logger.info(f"{runner_id}: Refreshing page for next iteration...")
                     page.reload(wait_until="domcontentloaded")
-                    time.sleep(2)
+                    time.sleep(1.5)
 
-            # All iterations completed successfully
-            logger.success(f"{runner_id}: Completed all 5 phone verification attempts for {email}")
-            savecreated('completed', f"{email}:{password} - Store: {store_name} - Phone: {phone_number}")
+            # All iterations completed
+            logger.info(f"{runner_id}: Completed phone verification loop for {email}")
 
-            time.sleep(2)
+            time.sleep(1)
             browser.close()
             if progress_bar:
                 progress_bar.update(1)
