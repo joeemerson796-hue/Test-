@@ -313,96 +313,145 @@ def wish_store_automation(email, password, store_password, country, phone_number
                     progress_bar.update(1)
                 return
 
-            # Step 4: Get captcha image and solve it
-            logger.info(f"{runner_id}: Looking for captcha image...")
-            try:
-                # Wait for captcha image to load
-                captcha_img = page.locator('img.image_1sjo3yd').first
-                captcha_img.wait_for(state="visible", timeout=10000)
-                time.sleep(1)
+            # Step 4: Captcha solving with retry loop
+            logger.info(f"{runner_id}: Starting captcha solving process...")
+            max_captcha_attempts = 3
+            captcha_solved = False
 
-                # Get the captcha image src
-                captcha_src = captcha_img.get_attribute("src")
-                logger.info(f"{runner_id}: Captcha image found: {captcha_src}")
+            for captcha_attempt in range(1, max_captcha_attempts + 1):
+                logger.info(f"{runner_id}: Captcha attempt {captcha_attempt}/{max_captcha_attempts}")
 
-                # Fetch the captcha image
-                if captcha_src.startswith('/'):
-                    # Relative URL, construct full URL
-                    captcha_url = f"https://merchant.wish.com{captcha_src}"
-                else:
-                    captcha_url = captcha_src
+                try:
+                    # Wait for captcha image to load
+                    captcha_img = page.locator('img.image_1sjo3yd').first
+                    captcha_img.wait_for(state="visible", timeout=10000)
+                    time.sleep(1)
 
-                # Download captcha image
-                logger.info(f"{runner_id}: Downloading captcha from: {captcha_url}")
-                captcha_response = page.request.get(captcha_url)
-                captcha_image_bytes = captcha_response.body()
+                    # Get the captcha image src
+                    captcha_src = captcha_img.get_attribute("src")
+                    logger.info(f"{runner_id}: Captcha image found: {captcha_src}")
 
-                # Convert to base64
-                captcha_base64 = base64.b64encode(captcha_image_bytes).decode('utf-8')
-                logger.info(f"{runner_id}: Captcha converted to base64 (length: {len(captcha_base64)})")
+                    # Fetch the captcha image
+                    if captcha_src.startswith('/'):
+                        # Relative URL, construct full URL
+                        captcha_url = f"https://merchant.wish.com{captcha_src}"
+                    else:
+                        captcha_url = captcha_src
 
-                # Solve captcha using YesCaptcha
-                captcha_solution = solve_captcha_yescaptcha(captcha_base64)
+                    # Download captcha image
+                    logger.info(f"{runner_id}: Downloading captcha from: {captcha_url}")
+                    captcha_response = page.request.get(captcha_url)
+                    captcha_image_bytes = captcha_response.body()
 
-                if not captcha_solution:
-                    logger.error(f"{runner_id}: Failed to solve captcha")
-                    savecreated('failed', f"{email} - Failed to solve captcha")
-                    browser.close()
-                    if progress_bar:
-                        progress_bar.update(1)
-                    return
+                    # Convert to base64
+                    captcha_base64 = base64.b64encode(captcha_image_bytes).decode('utf-8')
+                    logger.info(f"{runner_id}: Captcha converted to base64 (length: {len(captcha_base64)})")
 
-                # Fill captcha solution
-                logger.info(f"{runner_id}: Entering captcha solution: {captcha_solution}")
-                captcha_input = page.locator('input.inputBase_1os68jb-o_O-input_sqerl5[placeholder="Code in the picture"]').first
-                captcha_input.wait_for(state="visible", timeout=10000)
-                human_like_type(page, captcha_input, captcha_solution)
-                time.sleep(random.uniform(0.5, 1.0))
+                    # Solve captcha using YesCaptcha
+                    captcha_solution = solve_captcha_yescaptcha(captcha_base64)
 
-            except Exception as e:
-                logger.error(f"{runner_id}: Error handling captcha: {e}")
-                savecreated('failed', f"{email} - Error handling captcha: {str(e)}")
+                    if not captcha_solution:
+                        logger.error(f"{runner_id}: Failed to solve captcha on attempt {captcha_attempt}")
+                        if captcha_attempt < max_captcha_attempts:
+                            logger.info(f"{runner_id}: Retrying captcha...")
+                            continue
+                        else:
+                            savecreated('failed', f"{email} - Failed to solve captcha after {max_captcha_attempts} attempts")
+                            browser.close()
+                            if progress_bar:
+                                progress_bar.update(1)
+                            return
+
+                    # Clear captcha input and fill solution
+                    logger.info(f"{runner_id}: Entering captcha solution: {captcha_solution}")
+                    captcha_input = page.locator('input.inputBase_1os68jb-o_O-input_sqerl5[placeholder="Code in the picture"]').first
+                    captcha_input.wait_for(state="visible", timeout=10000)
+                    captcha_input.clear()
+                    human_like_type(page, captcha_input, captcha_solution)
+                    time.sleep(random.uniform(0.5, 1.0))
+
+                    # Click Continue button
+                    logger.info(f"{runner_id}: Clicking Continue button...")
+                    continue_button = page.locator('button.root_1vrerfk-o_O-rootEnabled_1d8zzey').first
+                    continue_button.wait_for(state="visible", timeout=10000)
+                    time.sleep(random.uniform(0.5, 1.5))
+                    human_like_click(page, continue_button)
+
+                    # Wait for response
+                    time.sleep(3)
+
+                    # Check for "Captcha code does not match" alert
+                    try:
+                        captcha_error_alert = page.locator('div.p_z9w6jj:has-text("Captcha code does not match")').first
+                        if captcha_error_alert.is_visible(timeout=2000):
+                            logger.warning(f"{runner_id}: Captcha code does not match, retrying...")
+                            if captcha_attempt < max_captcha_attempts:
+                                time.sleep(2)
+                                continue
+                            else:
+                                logger.error(f"{runner_id}: Captcha failed after {max_captcha_attempts} attempts")
+                                savecreated('failed', f"{email} - Captcha code does not match after {max_captcha_attempts} attempts")
+                                browser.close()
+                                if progress_bar:
+                                    progress_bar.update(1)
+                                return
+                    except:
+                        # No captcha error, captcha was successful
+                        logger.success(f"{runner_id}: Captcha solved successfully!")
+                        captcha_solved = True
+                        break
+
+                    # If we get here, captcha was successful
+                    captcha_solved = True
+                    break
+
+                except Exception as e:
+                    logger.error(f"{runner_id}: Error handling captcha on attempt {captcha_attempt}: {e}")
+                    if captcha_attempt < max_captcha_attempts:
+                        logger.info(f"{runner_id}: Retrying captcha...")
+                        time.sleep(2)
+                        continue
+                    else:
+                        savecreated('failed', f"{email} - Error handling captcha: {str(e)}")
+                        browser.close()
+                        if progress_bar:
+                            progress_bar.update(1)
+                        return
+
+            if not captcha_solved:
+                logger.error(f"{runner_id}: Failed to solve captcha")
+                savecreated('failed', f"{email} - Failed to solve captcha")
                 browser.close()
                 if progress_bar:
                     progress_bar.update(1)
                 return
 
-            # Step 5: Click Continue button
-            logger.info(f"{runner_id}: Clicking Continue button...")
+            # Step 5: Wait for page to proceed and check for errors
+            logger.info(f"{runner_id}: Waiting for page to load after captcha...")
+            time.sleep(5)
+
+            # Check current URL
+            current_url = page.url
+            logger.info(f"{runner_id}: Current URL after Continue: {current_url}")
+
+            # Check if there's an error message (but ignore "This field is required")
             try:
-                continue_button = page.locator('button.root_1vrerfk-o_O-rootEnabled_1d8zzey').first
-                continue_button.wait_for(state="visible", timeout=10000)
-                time.sleep(random.uniform(0.5, 1.5))
-                human_like_click(page, continue_button)
+                error_message = page.locator('div[class*="error"], span[class*="error"]').first
+                if error_message.is_visible(timeout=2000):
+                    error_text = error_message.inner_text()
 
-                # Wait for next page to load
-                time.sleep(5)
-
-                # Check for errors on initial signup
-                current_url = page.url
-                logger.info(f"{runner_id}: Current URL after Continue: {current_url}")
-
-                # Check if there's an error message
-                try:
-                    error_message = page.locator('div[class*="error"], span[class*="error"]').first
-                    if error_message.is_visible(timeout=2000):
-                        error_text = error_message.inner_text()
+                    # Ignore "This field is required" error - continue with address form
+                    if "This field is required" in error_text:
+                        logger.info(f"{runner_id}: 'This field is required' error detected, ignoring and proceeding to address form...")
+                    else:
                         logger.warning(f"{runner_id}: Error message found: {error_text}")
                         savecreated('failed', f"{email} - Error: {error_text}")
                         browser.close()
                         if progress_bar:
                             progress_bar.update(1)
                         return
-                except:
-                    pass
-
-            except Exception as e:
-                logger.error(f"{runner_id}: Error clicking Continue: {e}")
-                savecreated('failed', f"{email} - Error clicking Continue: {str(e)}")
-                browser.close()
-                if progress_bar:
-                    progress_bar.update(1)
-                return
+            except:
+                pass
 
             # Step 6: Phone verification loop (5 times)
             logger.info(f"{runner_id}: Starting phone verification loop (5 iterations)...")
