@@ -185,8 +185,10 @@ def fill_address_form(page, country, phone_number, runner_id):
 
     # Select country
     try:
-        country_select = page.locator('select.root_1axnkx7-o_O-style_bc4egv[data-cy="country-select"]').first
-        country_select.wait_for(state="visible", timeout=10000)
+        # Use data-cy attribute for more reliable selection
+        country_select = page.locator('select[data-cy="country-select"]').first
+        # Wait a bit for the page to fully render
+        time.sleep(0.5)
         # Click on the select dropdown first to open it
         country_select.click()
         time.sleep(0.3)
