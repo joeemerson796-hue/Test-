@@ -158,10 +158,7 @@ def turo_signup_automation(email, password, country, phone_number, runner_id, pr
             # Wait for URL to change to sign-up/email
             page.wait_for_url("**/sign-up/email**", timeout=15000)
             logger.info(f"{runner_id}: Navigated to: {page.url}")
-
-            # Wait for page to fully load
-            page.wait_for_load_state("networkidle", timeout=30000)
-            time.sleep(random.uniform(2, 3))
+            time.sleep(random.uniform(3, 4))
 
             # Try to find iframe, if not found use page directly
             logger.info(f"{runner_id}: Looking for form...")
