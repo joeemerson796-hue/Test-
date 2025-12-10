@@ -31,8 +31,7 @@ def get_next_phone():
 
     with phone_lock:
         if phone_index >= len(phone_numbers):
-            logger.warning("Phone numbers exhausted, cycling back to start")
-            phone_index = 0  # Reset to beginning if we run out
+            return None  # No more numbers available
         phone = phone_numbers[phone_index]
         phone_index += 1
         return phone
@@ -148,25 +147,35 @@ def hepsiburada_signup_automation(phone_number, runner_id, iteration):
 
 def run_worker(worker_index, progress_bar):
     """
-    Worker function to process 3 phone numbers
+    Worker function to process phone numbers until none are left
     Each worker will:
     1. Get a phone number
-    2. Submit it
-    3. Repeat 3 times
+    2. Submit it (3 times per number)
+    3. Repeat until numbers.txt is empty
     """
     runner_id = f"Worker-{worker_index + 1}"
+    processed_count = 0
 
-    for iteration in range(1, 4):  # Do 3 iterations
+    while True:
         phone = get_next_phone()  # Get next phone from pool
 
-        success = hepsiburada_signup_automation(phone, runner_id, iteration)
+        if phone is None:
+            # No more numbers available
+            break
 
-        if not success:
-            logger.warning(f"{runner_id}: Failed {phone}")
+        # Process this phone 3 times
+        for iteration in range(1, 4):
+            success = hepsiburada_signup_automation(phone, runner_id, iteration)
 
-    logger.success(f"{runner_id}: DONE ✓")
-    if progress_bar:
-        progress_bar.update(1)
+            if not success:
+                logger.warning(f"{runner_id}: Failed {phone}")
+
+            if progress_bar:
+                progress_bar.update(1)
+
+        processed_count += 1
+
+    logger.success(f"{runner_id}: DONE ✓ Processed {processed_count} numbers ({processed_count * 3} submissions)")
 
 
 if __name__ == "__main__":
@@ -190,15 +199,16 @@ if __name__ == "__main__":
     # Ask for number of workers
     num_workers = int(input('Number of concurrent workers: '))
 
-    # Calculate total submissions (each worker does 3)
-    total_submissions = num_workers * 3
-    logger.info(f"Starting {num_workers} workers → {total_submissions} total submissions")
+    # Calculate total submissions (each number gets submitted 3 times)
+    total_submissions = len(phone_numbers) * 3
+    logger.info(f"Starting {num_workers} workers")
+    logger.info(f"Total: {len(phone_numbers)} numbers → {total_submissions} submissions")
 
     # Initialize progress bar
-    with tqdm(total=num_workers, desc="Progress", unit="worker", ncols=80) as progress_bar:
+    with tqdm(total=total_submissions, desc="Progress", unit="submission", ncols=80) as progress_bar:
         # Execute workers
         with ThreadPoolExecutor(max_workers=num_workers) as executor:
             executor.map(lambda i: run_worker(i, progress_bar), range(num_workers))
 
-    logger.success("✓ COMPLETE!")
+    logger.success("✓ ALL NUMBERS PROCESSED!")
     logger.info(f"Check submitted.txt and failed.txt for results")
