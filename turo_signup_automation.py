@@ -150,40 +150,46 @@ def turo_signup_automation(email, password, country, phone_number, runner_id, pr
             continue_email_btn = page.locator('button:has-text("Continue with email")')
             continue_email_btn.wait_for(state="visible", timeout=15000)
             time.sleep(random.uniform(0.5, 1))
+
+            # Click and wait for page to settle
             human_like_click(page, continue_email_btn)
-            time.sleep(random.uniform(3, 5))  # Wait longer for form to appear
+            logger.info(f"{runner_id}: Button clicked, waiting for form to load...")
+
+            # Wait for network to be idle (form loading complete)
+            page.wait_for_load_state("networkidle", timeout=30000)
+            time.sleep(random.uniform(2, 3))
 
             # Step 3: Fill in first name (10 random characters)
             first_name = generate_random_name(10)
             logger.info(f"{runner_id}: Entering first name: {first_name}...")
-            # Try multiple selectors for first name field
-            first_name_input = page.locator('input[name="firstName"], input[id="firstName"], input[placeholder*="First"]').first
+            first_name_input = page.locator('input[data-testid="firstName"]')
             first_name_input.wait_for(state="visible", timeout=30000)
+            first_name_input.wait_for(state="attached", timeout=10000)
             first_name_input.fill(first_name)
             time.sleep(random.uniform(0.5, 1))
 
             # Step 4: Fill in last name (10 random characters)
             last_name = generate_random_name(10)
             logger.info(f"{runner_id}: Entering last name: {last_name}...")
-            last_name_input = page.locator('input[name="lastName"], input[id="lastName"], input[placeholder*="Last"]').first
+            last_name_input = page.locator('input[data-testid="lastName"]')
             last_name_input.fill(last_name)
             time.sleep(random.uniform(0.5, 1))
 
             # Step 5: Fill in email
             logger.info(f"{runner_id}: Entering email: {email}...")
-            email_input = page.locator('input[name="email"], input[id="email"], input[type="email"]').first
+            email_input = page.locator('input[data-testid="email"]')
             email_input.fill(email)
             time.sleep(random.uniform(0.5, 1))
 
             # Step 6: Fill in password
             logger.info(f"{runner_id}: Entering password...")
-            password_input = page.locator('input[name="password"], input[id="password"], input[type="password"]').first
+            password_input = page.locator('input[data-testid="password"]')
             password_input.fill(password)
             time.sleep(random.uniform(0.5, 1))
 
             # Step 7: Check TOS checkbox
             logger.info(f"{runner_id}: Checking TOS checkbox...")
-            tos_checkbox = page.locator('input[type="checkbox"][name="tos"], input[type="checkbox"][id="tos"]').first
+            tos_checkbox = page.locator('input[data-testid="tos"]')
             tos_checkbox.wait_for(state="visible", timeout=10000)
             time.sleep(random.uniform(0.3, 0.7))
             tos_checkbox.check()
@@ -191,7 +197,7 @@ def turo_signup_automation(email, password, country, phone_number, runner_id, pr
 
             # Step 8: Click signup button
             logger.info(f"{runner_id}: Clicking signup button...")
-            signup_button = page.locator('button[type="submit"]:has-text("Sign up"), button:has-text("Sign up")').first
+            signup_button = page.locator('button[data-testid="submitSignupButton"]')
             signup_button.wait_for(state="visible", timeout=10000)
             time.sleep(random.uniform(0.5, 1))
             human_like_click(page, signup_button)
@@ -211,23 +217,23 @@ def turo_signup_automation(email, password, country, phone_number, runner_id, pr
 
             # Step 12: Select country
             logger.info(f"{runner_id}: Selecting country: {country}...")
-            country_select = page.locator('select[id="countryCode"], select[name="countryCode"]').first
+            country_select = page.locator('select[id="countryCode"]')
             country_select.wait_for(state="visible", timeout=15000)
             time.sleep(random.uniform(0.5, 1))
             # Select by text (value attribute is country code, but we match by visible text)
-            country_select.select_option(label=country)
+            page.select_option('select[id="countryCode"]', label=country)
             time.sleep(random.uniform(0.5, 1))
 
             # Step 13: Enter phone number
             logger.info(f"{runner_id}: Entering phone number: {phone_number}...")
-            phone_input = page.locator('input[id="phoneNumber"], input[name="phoneNumber"], input[type="tel"]').first
+            phone_input = page.locator('input[id="phoneNumber"]')
             phone_input.wait_for(state="visible", timeout=10000)
             phone_input.fill(phone_number)
             time.sleep(random.uniform(0.5, 1))
 
             # Step 14: Click send code button
             logger.info(f"{runner_id}: Clicking send code button...")
-            send_code_button = page.locator('button[type="submit"]:has-text("Send code"), button:has-text("Send code")').first
+            send_code_button = page.locator('button[type="submit"]:has-text("Send code")')
             send_code_button.wait_for(state="visible", timeout=10000)
             time.sleep(random.uniform(0.5, 1))
             human_like_click(page, send_code_button)
