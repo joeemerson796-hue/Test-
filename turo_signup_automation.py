@@ -142,27 +142,22 @@ def turo_signup_automation(email, password, country, phone_number, runner_id, pr
 
             # Step 1: Navigate to signup page
             logger.info(f"{runner_id}: Navigating to Turo signup page...")
-            page.goto(signup_url, wait_until="networkidle")
-            time.sleep(random.uniform(3, 4))
+            page.goto(signup_url, wait_until="domcontentloaded")
+            time.sleep(random.uniform(2, 3))
 
-            # Step 2: Click "Continue with email" and wait for form
+            # Step 2: Click "Continue with email"
             logger.info(f"{runner_id}: Clicking 'Continue with email'...")
             continue_email_btn = page.locator('button:has-text("Continue with email")')
             continue_email_btn.wait_for(state="visible", timeout=15000)
             time.sleep(random.uniform(0.5, 1))
-
-            # Click button
-            continue_email_btn.click()
-            logger.info(f"{runner_id}: Button clicked, waiting for form fields...")
-
-            # Wait for first name input to appear (proves form loaded)
-            first_name_input = page.locator('input[data-testid="firstName"]')
-            first_name_input.wait_for(state="visible", timeout=20000)
-            time.sleep(random.uniform(1, 2))
+            human_like_click(page, continue_email_btn)
+            time.sleep(random.uniform(3, 5))  # Wait longer for form to appear
 
             # Step 3: Fill in first name (10 random characters)
             first_name = generate_random_name(10)
             logger.info(f"{runner_id}: Entering first name: {first_name}...")
+            first_name_input = page.locator('input[data-testid="firstName"]')
+            first_name_input.wait_for(state="visible", timeout=30000)  # Increased timeout
             first_name_input.fill(first_name)
             time.sleep(random.uniform(0.5, 1))
 
