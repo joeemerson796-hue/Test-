@@ -1,0 +1,225 @@
+import os
+import time
+import random
+from concurrent.futures import ThreadPoolExecutor
+from playwright.sync_api import sync_playwright
+from undetected_playwright import stealth_sync
+from loguru import logger
+from threading import Lock
+from tqdm import tqdm
+
+# Global lock for thread-safe file operations
+file_lock = Lock()
+phone_numbers = []
+phone_index = 0
+phone_lock = Lock()
+
+
+def clear_console():
+    os.system('cls' if os.name == 'nt' else 'clear')
+
+
+def savecreated(filename, message):
+    workcard = filename + '.txt'
+    with open(workcard, "a", encoding="utf8") as file:
+        file.writelines(message + '\n')
+
+
+def get_next_phone():
+    """Get next phone number from the pool in a thread-safe manner"""
+    global phone_index, phone_numbers, phone_lock
+
+    with phone_lock:
+        if phone_index >= len(phone_numbers):
+            logger.warning("Phone numbers exhausted, cycling back to start")
+            phone_index = 0  # Reset to beginning if we run out
+        phone = phone_numbers[phone_index]
+        phone_index += 1
+        return phone
+
+
+def human_like_type(element, text):
+    """Simulate human-like typing with random delays between characters"""
+    for char in text:
+        element.type(char)
+        time.sleep(random.uniform(0.05, 0.15))
+
+
+def human_like_click(page, locator):
+    """Simulate human-like click with mouse movement and delays"""
+    # Get element bounding box
+    box = locator.bounding_box()
+    if box:
+        # Random position within the element
+        x = box['x'] + box['width'] * random.uniform(0.3, 0.7)
+        y = box['y'] + box['height'] * random.uniform(0.3, 0.7)
+
+        # Move mouse to element with slight delay
+        page.mouse.move(x, y)
+        time.sleep(random.uniform(0.1, 0.3))
+
+        # Click
+        page.mouse.click(x, y)
+    else:
+        # Fallback to regular click
+        locator.click()
+
+
+def hepsiburada_signup_automation(phone_number, runner_id, iteration):
+    """
+    Automates Hepsiburada signup form submission for a single phone number
+    """
+    url = "https://giris.hepsiburada.com/?ReturnUrl=https%3A%2F%2Foauth.hepsiburada.com%2Fconnect%2Fauthorize%2Fcallback%3Fclient_id%3DSPA%26redirect_uri%3Dhttps%253A%252F%252Fwww.hepsiburada.com%252Fuyelik%252Fcallback%26response_type%3Dcode%26scope%3Dopenid%2520profile%26state%3D4aa0e099a09a46fea99464647adcc880%26code_challenge%3DLKWyoKssZapoiPs8nkVhi9Xe60yn1kMUWXH2arc8xLo%26code_challenge_method%3DS256%26response_mode%3Dquery%26ActivePage%3DSIGN_UP%26oidcReturnUrl%3Dhttps%253A%252F%252Fwww.hepsiburada.com%252F"
+
+    with sync_playwright() as playwright:
+        try:
+            browser = playwright.chromium.launch(
+                headless=False,  # Set to True for headless mode
+                args=[
+                    '--disable-blink-features=AutomationControlled',
+                    '--disable-dev-shm-usage',
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-web-security',
+                    '--disable-features=IsolateOrigins,site-per-process'
+                ]
+            )
+
+            context = browser.new_context(
+                viewport={'width': 1920, 'height': 1080},
+                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
+            )
+
+            stealth_sync(context)
+            page = context.new_page()
+
+            logger.info(f"{runner_id} [Iteration {iteration}]: Navigating to Hepsiburada signup page...")
+            page.goto(url, wait_until="domcontentloaded", timeout=30000)
+            time.sleep(random.uniform(2, 4))
+
+            # Step 1: Find and fill the username/phone input field
+            logger.info(f"{runner_id} [Iteration {iteration}]: Filling phone number {phone_number}...")
+            try:
+                # Wait for the input field to be visible
+                username_input = page.locator('input#txtUserName[name="username"]')
+                username_input.wait_for(state="visible", timeout=15000)
+
+                # Clear any existing value
+                username_input.clear()
+                time.sleep(random.uniform(0.5, 1))
+
+                # Type the phone number with human-like delays
+                username_input.type(phone_number, delay=random.randint(50, 150))
+                time.sleep(random.uniform(1, 2))
+
+                logger.success(f"{runner_id} [Iteration {iteration}]: Phone number entered successfully")
+            except Exception as e:
+                logger.error(f"{runner_id} [Iteration {iteration}]: Failed to fill phone number - {e}")
+                savecreated('failed', f"{phone_number} - Error filling field: {str(e)}")
+                browser.close()
+                return False
+
+            # Step 2: Click the submit button
+            logger.info(f"{runner_id} [Iteration {iteration}]: Clicking submit button...")
+            try:
+                submit_button = page.locator('button#btnSignUpSubmit[name="btnSignUpSubmit"]')
+                submit_button.wait_for(state="visible", timeout=10000)
+                time.sleep(random.uniform(0.5, 1.5))
+
+                # Human-like click
+                human_like_click(page, submit_button)
+
+                logger.success(f"{runner_id} [Iteration {iteration}]: Submit button clicked")
+                time.sleep(random.uniform(2, 3))
+
+            except Exception as e:
+                logger.error(f"{runner_id} [Iteration {iteration}]: Failed to click submit button - {e}")
+                savecreated('failed', f"{phone_number} - Error clicking button: {str(e)}")
+                browser.close()
+                return False
+
+            # Log success
+            savecreated('submitted', f"{phone_number} - Iteration {iteration}")
+            logger.success(f"{runner_id} [Iteration {iteration}]: Phone {phone_number} submitted successfully!")
+
+            time.sleep(random.uniform(1, 2))
+            browser.close()
+            return True
+
+        except Exception as e:
+            logger.error(f"{runner_id} [Iteration {iteration}]: Automation failed - {e}")
+            savecreated('failed', f"{phone_number} - Error: {str(e)}")
+            try:
+                browser.close()
+            except:
+                pass
+            return False
+
+
+def run_worker(worker_index, progress_bar):
+    """
+    Worker function to process 3 phone numbers
+    Each worker will:
+    1. Get a phone number
+    2. Submit it
+    3. Repeat 3 times
+    """
+    runner_id = f"Worker-{worker_index + 1}"
+
+    logger.info(f"{runner_id}: Starting automation (will process 3 numbers)")
+
+    for iteration in range(1, 4):  # Do 3 iterations
+        phone = get_next_phone()  # Get next phone from pool
+        logger.info(f"{runner_id}: Processing number {iteration}/3 - {phone}")
+
+        success = hepsiburada_signup_automation(phone, runner_id, iteration)
+
+        if not success:
+            logger.warning(f"{runner_id}: Failed to process {phone}, continuing to next number...")
+
+        # Small delay between iterations
+        if iteration < 3:
+            time.sleep(random.uniform(1, 2))
+
+    logger.success(f"{runner_id}: Completed all 3 submissions")
+    if progress_bar:
+        progress_bar.update(1)
+
+
+if __name__ == "__main__":
+    clear_console()
+    logger.info("Hepsiburada Signup Automation Script")
+    logger.info("=" * 50)
+
+    # Load phone numbers from file
+    try:
+        with open("numbers.txt", "r", encoding="utf8") as file:
+            phone_numbers = [line.strip() for line in file if line.strip()]
+        logger.info(f"Loaded {len(phone_numbers)} phone numbers from numbers.txt")
+    except FileNotFoundError:
+        logger.error("'numbers.txt' not found. Create a file with phone numbers (one per line)")
+        exit(1)
+
+    if len(phone_numbers) == 0:
+        logger.error("No phone numbers loaded. Please add numbers to numbers.txt")
+        exit(1)
+
+    # Ask for number of workers
+    num_workers = int(input('Number of concurrent workers: '))
+
+    # Calculate total submissions (each worker does 3)
+    total_submissions = num_workers * 3
+    logger.info(f"Total submissions to be made: {total_submissions}")
+
+    if total_submissions > len(phone_numbers):
+        logger.warning(f"Not enough phone numbers! Need {total_submissions}, have {len(phone_numbers)}")
+        logger.warning("Numbers will be cycled/reused")
+
+    # Initialize progress bar
+    with tqdm(total=num_workers, desc="Workers Progress", unit="worker") as progress_bar:
+        # Execute workers
+        with ThreadPoolExecutor(max_workers=num_workers) as executor:
+            executor.map(lambda i: run_worker(i, progress_bar), range(num_workers))
+
+    logger.success("Script finished!")
+    input('Press Enter to exit...')
