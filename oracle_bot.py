@@ -15,6 +15,8 @@ from undetected_playwright import stealth_sync
 
 # ===== Telegram Bot Config =====
 TELEGRAM_TOKEN = "8231519327:AAEIRu7Sm8C_lLGiFvP97DcAeXsMJaCjf04"
+ORACLE_PASSWORD = "Gouda@123@gg"
+ORACLE_SIGNUP_URL = "https://profile.oracle.com/myprofile/account/create-account.jspx"
 
 # ===== Global State Management =====
 # Track which accounts are assigned to which users
@@ -342,24 +344,17 @@ def handle_start_command(chat_id):
     message = """🤖 <b>Oracle Account Creation Bot</b>
 
 <b>How it works:</b>
-1. Use /get to receive a Hotmail account
-2. Manually sign up for Oracle using that email
-3. Use /check to verify the account
-4. Bot checks email, opens verification link
-5. Account saved to created.txt
-6. Get next account automatically
+1. /get → Get account details (all copyable!)
+2. Sign up Oracle manually
+3. /check → Bot verifies automatically
+4. Account saved to created.txt
+5. Repeat!
 
 <b>Commands:</b>
-/get - Get Hotmail account
-/check &lt;password&gt; - Check & verify Oracle account
+/get - Get account
+/check - Verify account
 /myaccounts - Your accounts
-/release &lt;email&gt; - Release account
 /status - System status
-
-<b>Example:</b>
-1️⃣ /get
-2️⃣ Sign up Oracle manually
-3️⃣ /check YourPassword123
 
 ——————————
 /get"""
@@ -385,30 +380,35 @@ def handle_get_command(chat_id):
     # Set this as the current account for the user
     user_current_account[chat_id] = account
 
-    message = f"""✅ <b>Hotmail Account Assigned</b>
+    message = f"""✅ <b>Account Ready - Click to Copy!</b>
 
-📧 <b>Email:</b> <code>{email_part}</code>
-🔑 <b>Password:</b> <code>{password}</code>
+🔗 <b>Registration Link:</b>
+{ORACLE_SIGNUP_URL}
 
-<b>Next Steps:</b>
-1. Go to Oracle signup: https://profile.oracle.com/myprofile/account/create-account.jspx
-2. Use the email above for registration
-3. Complete the signup manually
-4. Come back and use: /check YourOraclePassword
+📧 <b>Hotmail Email:</b>
+<code>{email_part}</code>
+
+🔑 <b>Hotmail Password:</b>
+<code>{password}</code>
+
+🔐 <b>Oracle Password:</b>
+<code>{ORACLE_PASSWORD}</code>
+
+<b>Steps:</b>
+1. Click link above
+2. Copy & paste each field (click to copy)
+3. Complete signup
+4. Use /check when done
 
 ——————————
-/check YourPassword123"""
+/check"""
 
     send_telegram_message(chat_id, message)
 
-def handle_check_command(chat_id, oracle_password):
+def handle_check_command(chat_id):
     """Handle /check command - verify Oracle account"""
     if chat_id in active_operations:
         send_telegram_message(chat_id, "⏳ Processing previous request...\n\n——————————\n/get\n/check")
-        return
-
-    if not oracle_password:
-        send_telegram_message(chat_id, "❌ Please specify Oracle password\n\nExample: /check YourPassword123\n\n——————————\n/get\n/check")
         return
 
     # Check if user has a current account
@@ -433,7 +433,7 @@ def handle_check_command(chat_id, oracle_password):
         verify_url = check_for_oracle_verification_email(email_part, password, access_token)
 
         if not verify_url:
-            send_telegram_message(chat_id, f"❌ No Oracle verification email found for {email_part}\n\nMake sure you completed the Oracle signup!\n\n——————————\n/get\n/check {oracle_password}")
+            send_telegram_message(chat_id, f"❌ No Oracle verification email found for {email_part}\n\nMake sure you completed the Oracle signup!\n\n——————————\n/get\n/check")
             return
 
         send_telegram_message(chat_id, "✅ Verification email found! Opening link...")
@@ -443,15 +443,15 @@ def handle_check_command(chat_id, oracle_password):
 
         if success:
             # Save to created.txt
-            save_created_account(email_part, oracle_password)
+            save_created_account(email_part, ORACLE_PASSWORD)
 
             # Update status
-            update_account_status(original_line, 'verified', oracle_password)
+            update_account_status(original_line, 'verified', ORACLE_PASSWORD)
 
             message = f"""✅ <b>Account Created Successfully!</b>
 
 📧 <b>Email:</b> <code>{email_part}</code>
-🔐 <b>Password:</b> <code>{oracle_password}</code>
+🔐 <b>Password:</b> <code>{ORACLE_PASSWORD}</code>
 
 Saved to created.txt
 
@@ -488,7 +488,7 @@ def handle_myaccounts_command(chat_id):
         status_emoji = "✅" if acc['status'] == 'verified' else "⏳"
         message += f"{i}. {status_emoji} <code>{acc['email']}</code>\n"
         if acc['status'] == 'verified':
-            message += f"   🔐 Oracle Password: <code>{acc['oracle_password']}</code>\n"
+            message += f"   🔐 Oracle Password: <code>{ORACLE_PASSWORD}</code>\n"
         message += f"   Status: {acc['status']}\n\n"
 
     message += "——————————\n/get\n/check"
@@ -552,10 +552,8 @@ def handle_message(chat_id, text):
         handle_start_command(chat_id)
     elif text == "/get":
         handle_get_command(chat_id)
-    elif text.startswith("/check"):
-        parts = text.split(maxsplit=1)
-        oracle_password = parts[1] if len(parts) > 1 else None
-        handle_check_command(chat_id, oracle_password)
+    elif text == "/check":
+        handle_check_command(chat_id)
     elif text == "/myaccounts":
         handle_myaccounts_command(chat_id)
     elif text.startswith("/release"):
