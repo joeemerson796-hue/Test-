@@ -1,1 +1,4 @@
 ukjzpmsj7061@hotmail.com:Gouda123
+# Format for OAuth2 (recommended): email:password:refresh_token:client_id
+# Format for basic auth: email:password
+# Example OAuth2: example@hotmail.com:password123:your_refresh_token:your_client_id
