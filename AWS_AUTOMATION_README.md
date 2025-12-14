@@ -5,13 +5,14 @@ This script automates the AWS account registration process using Playwright and 
 ## Features
 
 - ✅ Automated email verification using Hotmail/Outlook IMAP OAuth2
-- ✅ Captcha solving using YesCaptcha API
+- ✅ **iframe-based captcha solving** using YesCaptcha API (handles AWS Security Verification modal)
 - ✅ Full AWS signup flow automation (all 5 steps)
 - ✅ Multi-threaded execution for concurrent account creation
 - ✅ Human-like typing and clicking simulation
 - ✅ Automatic retry logic for phone verification
 - ✅ Thread-safe file operations
 - ✅ Progress tracking with tqdm
+- ✅ Fallback captcha handling for both iframe and non-iframe captchas
 
 ## Prerequisites
 
@@ -74,11 +75,16 @@ Phone numbers for verification (one per line):
    - Enters account name (username from email)
    - Clicks "Verify email address"
 
-2. **Captcha Solving**
-   - Waits for captcha to appear
+2. **Captcha Solving (iframe-based)**
+   - Clicks "Verify" button to trigger security challenge
+   - Waits for Security Verification modal with iframe
+   - Switches to iframe context
+   - Waits for captcha image inside iframe
    - Downloads captcha image
    - Sends to YesCaptcha API for solving
-   - Enters solution and submits
+   - Enters solution inside iframe
+   - Submits captcha
+   - Includes fallback for non-iframe captchas
 
 3. **Email Verification**
    - Connects to Hotmail via IMAP OAuth2
@@ -213,6 +219,12 @@ browser = playwright.chromium.launch(headless=True)
    - AWS may have updated their UI
    - Check element selectors in the script
    - Run in non-headless mode to debug
+
+5. **Iframe captcha issues**
+   - The script handles AWS's iframe-based Security Verification modal
+   - If captcha isn't detected, check browser console for iframe loading errors
+   - Script includes fallback for non-iframe captchas
+   - Ensure JavaScript is enabled in Playwright
 
 ## Notes
 
