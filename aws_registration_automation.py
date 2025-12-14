@@ -172,16 +172,40 @@ def extract_aws_verification_code(email_address, access_token):
                     body = msg.get_payload(decode=True).decode(errors="ignore")
 
                 if body:
-                    # Extract 6-digit verification code
-                    # Looking for pattern like: <div class="x_code">444096</div>
+                    # Extract 6-digit verification code - try multiple patterns
+                    verification_code = None
+
+                    # Pattern 1: class="x_code" (Outlook web adds x_ prefix)
                     match = re.search(r'class="x_code">(\d{6})<', body)
                     if match:
                         verification_code = match.group(1)
+
+                    # Pattern 2: class="code" (raw email)
+                    if not verification_code:
+                        match = re.search(r'class="code">(\d{6})<', body)
+                        if match:
+                            verification_code = match.group(1)
+
+                    # Pattern 3: Look for 6 digits after "Verification code" text
+                    if not verification_code:
+                        match = re.search(r'Verification code.*?(\d{6})', body, re.DOTALL | re.IGNORECASE)
+                        if match:
+                            verification_code = match.group(1)
+
+                    # Pattern 4: Look for any 6-digit code (last resort)
+                    if not verification_code:
+                        match = re.search(r'>\s*(\d{6})\s*<', body)
+                        if match:
+                            verification_code = match.group(1)
+
+                    if verification_code:
                         logger.success(f"Found AWS verification code: {verification_code}")
                         mail.logout()
                         return verification_code
                     else:
                         logger.warning(f"Could not find verification code in email body")
+                        # Debug: print first 500 chars of body
+                        logger.debug(f"Email body preview: {body[:500]}")
 
         mail.logout()
     except Exception as e:
