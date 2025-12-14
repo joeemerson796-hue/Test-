@@ -511,16 +511,16 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
             continue_step1_button.click()
             time.sleep(5)
 
-            # NEW STEP: Choose account plan (Paid plan for full access)
+            # NEW STEP: Choose account plan (Free plan for 6 months trial)
             logger.info(f"{runner_id}: Choosing account plan...")
             try:
                 # Wait for account plan page to appear
-                paid_plan_button = page.locator('button:has-text("Choose paid plan")')
-                paid_plan_button.wait_for(state="visible", timeout=15000)
-                logger.info(f"{runner_id}: Clicking 'Choose paid plan' button...")
-                paid_plan_button.click()
+                free_plan_button = page.locator('button:has-text("Choose free plan")')
+                free_plan_button.wait_for(state="visible", timeout=15000)
+                logger.info(f"{runner_id}: Clicking 'Choose free plan' button...")
+                free_plan_button.click()
                 time.sleep(3)
-                logger.success(f"{runner_id}: Paid plan selected")
+                logger.success(f"{runner_id}: Free plan selected")
             except Exception as e:
                 logger.warning(f"{runner_id}: Could not find account plan selection, may have been skipped: {e}")
 
