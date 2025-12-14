@@ -486,10 +486,11 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
             otp_input.fill(verification_code)
             time.sleep(1)
 
-            # Click Continue button (after OTP)
-            logger.info(f"{runner_id}: Clicking Continue after OTP...")
-            continue_button = page.locator('button[type="submit"]')
-            continue_button.click()
+            # Click Verify button (after OTP)
+            logger.info(f"{runner_id}: Clicking Verify button after OTP...")
+            verify_button_otp = page.locator('button[data-testid="verify-email-submit-button"]')
+            verify_button_otp.wait_for(state="visible", timeout=10000)
+            verify_button_otp.click()
             time.sleep(3)
 
             # Step 10: Set password
