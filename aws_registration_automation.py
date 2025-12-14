@@ -562,21 +562,32 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
             phone_input.fill("573596-0999")
             time.sleep(1)
 
-            # Step 15: Select country (Mozambique)
-            logger.info(f"{runner_id}: Selecting country Mozambique...")
-            country_button = page.locator('button#address\\.country')
-            country_button.click()
-            time.sleep(1)
+            # Step 15: Select country (Mozambique) - check if already selected
+            logger.info(f"{runner_id}: Checking country selection...")
+            try:
+                country_button = page.locator('button#address\\.country')
+                country_button_text = country_button.inner_text()
 
-            # Search for Mozambique
-            country_search = page.locator('input[role="combobox"]').first
-            country_search.fill("Mozambique")
-            time.sleep(1)
+                if "Mozambique" in country_button_text:
+                    logger.info(f"{runner_id}: Country already set to Mozambique, skipping selection")
+                else:
+                    logger.info(f"{runner_id}: Selecting country Mozambique...")
+                    country_button.click()
+                    time.sleep(1)
 
-            # Select Mozambique
-            mozambique_country = page.locator('[role="option"]:has-text("Mozambique")').first
-            mozambique_country.click()
-            time.sleep(1)
+                    # Search for Mozambique
+                    country_search = page.locator('input[role="combobox"]').first
+                    country_search.wait_for(state="visible", timeout=5000)
+                    country_search.fill("Mozambique")
+                    time.sleep(1)
+
+                    # Select Mozambique
+                    mozambique_country = page.locator('[role="option"]:has-text("Mozambique")').first
+                    mozambique_country.click()
+                    time.sleep(1)
+                    logger.success(f"{runner_id}: Country set to Mozambique")
+            except Exception as e:
+                logger.warning(f"{runner_id}: Could not change country (may already be set): {e}")
 
             # Step 16: Fill address line 1
             logger.info(f"{runner_id}: Entering address...")
