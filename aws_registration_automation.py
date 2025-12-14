@@ -562,32 +562,48 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
             phone_input.fill("573596-0999")
             time.sleep(1)
 
-            # Step 15: Select country (Mozambique) - check if already selected
-            logger.info(f"{runner_id}: Checking country selection...")
+            # Step 15: Select country (Mozambique)
+            logger.info(f"{runner_id}: Selecting country Mozambique...")
             try:
                 country_button = page.locator('button#address\\.country')
-                country_button_text = country_button.inner_text()
+                country_button.wait_for(state="visible", timeout=10000)
 
-                if "Mozambique" in country_button_text:
-                    logger.info(f"{runner_id}: Country already set to Mozambique, skipping selection")
-                else:
-                    logger.info(f"{runner_id}: Selecting country Mozambique...")
-                    country_button.click()
-                    time.sleep(1)
+                # Always select Mozambique (default is United States)
+                logger.info(f"{runner_id}: Clicking country dropdown...")
+                country_button.click()
+                time.sleep(2)  # Wait for dropdown to open
 
-                    # Search for Mozambique
-                    country_search = page.locator('input[role="combobox"]').first
-                    country_search.wait_for(state="visible", timeout=5000)
-                    country_search.fill("Mozambique")
-                    time.sleep(1)
+                # Wait for the dropdown dialog to appear
+                logger.info(f"{runner_id}: Waiting for country dropdown to open...")
+                dropdown = page.locator('div[role="dialog"], div.awsui_dropdown_qwoo0').first
+                dropdown.wait_for(state="visible", timeout=10000)
+                time.sleep(1)
 
-                    # Select Mozambique
-                    mozambique_country = page.locator('[role="option"]:has-text("Mozambique")').first
-                    mozambique_country.click()
-                    time.sleep(1)
-                    logger.success(f"{runner_id}: Country set to Mozambique")
+                # Now search for Mozambique
+                logger.info(f"{runner_id}: Searching for Mozambique...")
+                country_search = page.locator('input[role="combobox"]').first
+                country_search.wait_for(state="visible", timeout=10000)
+                country_search.click()  # Click to focus
+                time.sleep(0.5)
+                country_search.fill("Mozambique")
+                time.sleep(2)
+
+                # Select Mozambique from the results
+                logger.info(f"{runner_id}: Selecting Mozambique from list...")
+                mozambique_country = page.locator('[role="option"]:has-text("Mozambique")').first
+                mozambique_country.wait_for(state="visible", timeout=10000)
+                mozambique_country.click()
+                time.sleep(1)
+                logger.success(f"{runner_id}: Country set to Mozambique")
             except Exception as e:
-                logger.warning(f"{runner_id}: Could not change country (may already be set): {e}")
+                logger.error(f"{runner_id}: Error selecting country: {e}")
+                # Take a screenshot for debugging
+                try:
+                    page.screenshot(path=f"country_error_{runner_id}.png")
+                    logger.info(f"{runner_id}: Screenshot saved to country_error_{runner_id}.png")
+                except:
+                    pass
+                raise  # Re-raise to stop execution
 
             # Step 16: Fill address line 1
             logger.info(f"{runner_id}: Entering address...")
