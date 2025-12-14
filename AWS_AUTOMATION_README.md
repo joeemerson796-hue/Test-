@@ -6,10 +6,11 @@ This script automates the AWS account registration process using Playwright and 
 
 - ✅ Automated email verification using Hotmail/Outlook IMAP OAuth2
 - ✅ **iframe-based captcha solving** using YesCaptcha API (handles AWS Security Verification modal)
+- ✅ **Auto-retry logic for incorrect captcha** (up to 5 attempts with error detection)
 - ✅ Full AWS signup flow automation (all 5 steps)
 - ✅ Multi-threaded execution for concurrent account creation
 - ✅ Human-like typing and clicking simulation
-- ✅ Automatic retry logic for phone verification
+- ✅ Automatic retry logic for phone verification (3 attempts)
 - ✅ Thread-safe file operations
 - ✅ Progress tracking with tqdm
 - ✅ Fallback captcha handling for both iframe and non-iframe captchas
@@ -75,15 +76,17 @@ Phone numbers for verification (one per line):
    - Enters account name (username from email)
    - Clicks "Verify email address"
 
-2. **Captcha Solving (iframe-based)**
-   - Clicks "Verify" button to trigger security challenge
-   - Waits for Security Verification modal with iframe
+2. **Captcha Solving (iframe-based with auto-retry)**
+   - Iframe appears automatically after clicking "Verify email address"
    - Switches to iframe context
    - Waits for captcha image inside iframe
    - Downloads captcha image
    - Sends to YesCaptcha API for solving
    - Enters solution inside iframe
    - Submits captcha
+   - **Detects error message** "That wasn't quite right, please try again"
+   - **Automatically retries up to 5 times** if captcha is incorrect
+   - Clears input and tries new solution on each retry
    - Includes fallback for non-iframe captchas
 
 3. **Email Verification**
@@ -206,9 +209,11 @@ browser = playwright.chromium.launch(headless=True)
    - Verify email hasn't been flagged as spam
 
 2. **"Failed to solve captcha"**
+   - Script automatically retries up to 5 times per captcha
    - Check YesCaptcha API key is valid
    - Ensure sufficient API credits
-   - Try again as captcha difficulty varies
+   - Check YesCaptcha solve accuracy (should be >80%)
+   - Script detects "That wasn't quite right" errors and retries automatically
 
 3. **Timeout errors**
    - Increase timeout values in the script
