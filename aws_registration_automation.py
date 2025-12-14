@@ -295,72 +295,111 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
             time.sleep(3)
 
             # Step 5: Handle AWS Security Verification (iframe-based captcha)
-            logger.info(f"{runner_id}: Waiting for security verification modal...")
+            logger.info(f"{runner_id}: Waiting for security verification iframe (appears automatically)...")
 
-            # Wait for the "Verify" button in the security check
-            try:
-                verify_security_button = page.locator('button:has-text("Verify")').first
-                verify_security_button.wait_for(state="visible", timeout=10000)
-                logger.info(f"{runner_id}: Clicking 'Verify' button to start security challenge...")
-                verify_security_button.click()
-                time.sleep(3)
-            except Exception as e:
-                logger.warning(f"{runner_id}: No security 'Verify' button found, continuing: {e}")
-
-            # Wait for the iframe modal to appear
-            logger.info(f"{runner_id}: Waiting for captcha iframe modal...")
-            try:
-                # Wait for the modal to be visible
-                captcha_modal = page.locator('div[role="dialog"]:has-text("Security Verification")').first
-                captcha_modal.wait_for(state="visible", timeout=15000)
-                time.sleep(2)
-                logger.info(f"{runner_id}: Security Verification modal appeared")
-            except Exception as e:
-                logger.warning(f"{runner_id}: Modal wait issue: {e}")
-
-            # Find and switch to the iframe
+            # Find and switch to the iframe (no need to click Verify - iframe appears automatically)
             logger.info(f"{runner_id}: Looking for captcha iframe...")
             try:
                 # Wait for iframe to load
                 iframe_element = page.locator('iframe#core-container, iframe[title="iframe"]').first
-                iframe_element.wait_for(state="attached", timeout=15000)
+                iframe_element.wait_for(state="attached", timeout=20000)
                 time.sleep(2)
 
                 # Get the iframe
                 iframe = page.frame_locator('iframe#core-container, iframe[title="iframe"]').first
                 logger.info(f"{runner_id}: Found captcha iframe")
 
-                # Wait for captcha image inside iframe
-                logger.info(f"{runner_id}: Waiting for captcha image inside iframe...")
-                captcha_img = iframe.locator('img[alt="captcha"]')
-                captcha_img.wait_for(state="visible", timeout=20000)
-                time.sleep(2)
+                # Retry loop for captcha solving (up to 5 attempts)
+                max_captcha_attempts = 5
+                captcha_solved = False
 
-                captcha_src = captcha_img.get_attribute("src")
-                logger.info(f"{runner_id}: Captcha image found: {captcha_src[:100]}...")
+                for attempt in range(1, max_captcha_attempts + 1):
+                    logger.info(f"{runner_id}: Captcha attempt {attempt}/{max_captcha_attempts}")
 
-                # Solve captcha
-                captcha_solution = solve_captcha_yescaptcha(captcha_src, page)
-                if not captcha_solution:
+                    try:
+                        # Wait for captcha image inside iframe
+                        logger.info(f"{runner_id}: Waiting for captcha image inside iframe...")
+                        captcha_img = iframe.locator('img[alt="captcha"]')
+                        captcha_img.wait_for(state="visible", timeout=20000)
+                        time.sleep(2)
+
+                        captcha_src = captcha_img.get_attribute("src")
+                        logger.info(f"{runner_id}: Captcha image found: {captcha_src[:100]}...")
+
+                        # Solve captcha
+                        captcha_solution = solve_captcha_yescaptcha(captcha_src, page)
+                        if not captcha_solution:
+                            logger.error(f"{runner_id}: Failed to solve captcha on attempt {attempt}")
+                            if attempt < max_captcha_attempts:
+                                logger.info(f"{runner_id}: Retrying captcha...")
+                                time.sleep(2)
+                                continue
+                            else:
+                                logger.error(f"{runner_id}: Failed to solve captcha after {max_captcha_attempts} attempts")
+                                savecreated('failed', f"{email_address} - Failed to solve captcha")
+                                browser.close()
+                                if progress_bar:
+                                    progress_bar.update(1)
+                                return
+
+                        # Step 6: Enter captcha solution inside iframe
+                        logger.info(f"{runner_id}: Entering captcha solution: {captcha_solution}...")
+                        captcha_input = iframe.locator('input[name="captchaGuess"], input[placeholder*="verification"], input[placeholder*="answer"]')
+                        captcha_input.wait_for(state="visible", timeout=10000)
+                        captcha_input.clear()
+                        captcha_input.fill(captcha_solution)
+                        time.sleep(1)
+
+                        # Step 7: Click Submit button inside iframe
+                        logger.info(f"{runner_id}: Clicking Submit button...")
+                        submit_button = iframe.locator('button[type="submit"], button:has-text("Submit")').first
+                        submit_button.click()
+                        time.sleep(3)
+
+                        # Check for error message
+                        try:
+                            error_message = iframe.locator('div.awsui_error_1i0s3_1goap_185, div[id*="form-error"]:has-text("wasn\'t quite right")').first
+                            if error_message.is_visible(timeout=3000):
+                                error_text = error_message.inner_text()
+                                logger.warning(f"{runner_id}: Captcha error on attempt {attempt}: {error_text}")
+                                if attempt < max_captcha_attempts:
+                                    logger.info(f"{runner_id}: Retrying captcha...")
+                                    time.sleep(2)
+                                    continue
+                                else:
+                                    logger.error(f"{runner_id}: Captcha failed after {max_captcha_attempts} attempts")
+                                    savecreated('failed', f"{email_address} - Captcha incorrect after {max_captcha_attempts} attempts")
+                                    browser.close()
+                                    if progress_bar:
+                                        progress_bar.update(1)
+                                    return
+                        except:
+                            # No error message, captcha was successful
+                            logger.success(f"{runner_id}: Captcha solved successfully on attempt {attempt}!")
+                            captcha_solved = True
+                            time.sleep(2)
+                            break
+
+                        # If we get here without error, captcha was successful
+                        captcha_solved = True
+                        break
+
+                    except Exception as e:
+                        logger.error(f"{runner_id}: Error on captcha attempt {attempt}: {e}")
+                        if attempt < max_captcha_attempts:
+                            logger.info(f"{runner_id}: Retrying captcha...")
+                            time.sleep(2)
+                            continue
+                        else:
+                            raise
+
+                if not captcha_solved:
                     logger.error(f"{runner_id}: Failed to solve captcha")
                     savecreated('failed', f"{email_address} - Failed to solve captcha")
                     browser.close()
                     if progress_bar:
                         progress_bar.update(1)
                     return
-
-                # Step 6: Enter captcha solution inside iframe
-                logger.info(f"{runner_id}: Entering captcha solution: {captcha_solution}...")
-                captcha_input = iframe.locator('input[name="captchaGuess"], input[placeholder*="verification"], input[placeholder*="answer"]')
-                captcha_input.wait_for(state="visible", timeout=10000)
-                captcha_input.fill(captcha_solution)
-                time.sleep(1)
-
-                # Step 7: Click Submit button inside iframe
-                logger.info(f"{runner_id}: Clicking Submit button...")
-                submit_button = iframe.locator('button[type="submit"], button:has-text("Submit")').first
-                submit_button.click()
-                time.sleep(5)
 
             except Exception as e:
                 logger.error(f"{runner_id}: Error handling iframe captcha: {e}")
@@ -615,18 +654,8 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
             send_sms_button.click()
             time.sleep(3)
 
-            # Step 31: Solve second captcha (iframe-based)
-            logger.info(f"{runner_id}: Waiting for second captcha...")
-
-            # Wait for the "Verify" button in the security check
-            try:
-                verify_security_button2 = page.locator('button:has-text("Verify")').first
-                if verify_security_button2.is_visible(timeout=5000):
-                    logger.info(f"{runner_id}: Clicking 'Verify' button to start second security challenge...")
-                    verify_security_button2.click()
-                    time.sleep(3)
-            except Exception as e:
-                logger.warning(f"{runner_id}: No second security 'Verify' button found: {e}")
+            # Step 31: Solve second captcha (iframe-based) with retry logic
+            logger.info(f"{runner_id}: Waiting for second captcha iframe (appears automatically)...")
 
             # Handle second captcha with iframe
             try:
@@ -640,34 +669,77 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
                 iframe2 = page.frame_locator('iframe#core-container, iframe[title="iframe"]').first
                 logger.info(f"{runner_id}: Found second captcha iframe")
 
-                # Wait for captcha image inside iframe
-                captcha_img2 = iframe2.locator('img[alt="captcha"]')
-                captcha_img2.wait_for(state="visible", timeout=20000)
-                time.sleep(2)
+                # Retry loop for second captcha (up to 5 attempts)
+                max_captcha_attempts2 = 5
+                captcha_solved2 = False
 
-                captcha_src2 = captcha_img2.get_attribute("src")
-                logger.info(f"{runner_id}: Second captcha found...")
+                for attempt in range(1, max_captcha_attempts2 + 1):
+                    logger.info(f"{runner_id}: Second captcha attempt {attempt}/{max_captcha_attempts2}")
 
-                # Solve captcha
-                captcha_solution2 = solve_captcha_yescaptcha(captcha_src2, page)
-                if not captcha_solution2:
-                    logger.error(f"{runner_id}: Failed to solve second captcha")
-                    browser.close()
-                    if progress_bar:
-                        progress_bar.update(1)
-                    return
+                    try:
+                        # Wait for captcha image inside iframe
+                        captcha_img2 = iframe2.locator('img[alt="captcha"]')
+                        captcha_img2.wait_for(state="visible", timeout=20000)
+                        time.sleep(2)
 
-                # Enter captcha solution inside iframe
-                logger.info(f"{runner_id}: Entering second captcha solution: {captcha_solution2}...")
-                captcha_input2 = iframe2.locator('input[name="captchaGuess"], input[placeholder*="verification"], input[placeholder*="answer"]')
-                captcha_input2.fill(captcha_solution2)
-                time.sleep(1)
+                        captcha_src2 = captcha_img2.get_attribute("src")
+                        logger.info(f"{runner_id}: Second captcha found...")
 
-                # Click Submit inside iframe
-                logger.info(f"{runner_id}: Clicking Submit...")
-                submit_captcha_button = iframe2.locator('button[type="submit"], button:has-text("Submit")').first
-                submit_captcha_button.click()
-                time.sleep(3)
+                        # Solve captcha
+                        captcha_solution2 = solve_captcha_yescaptcha(captcha_src2, page)
+                        if not captcha_solution2:
+                            logger.error(f"{runner_id}: Failed to solve second captcha on attempt {attempt}")
+                            if attempt < max_captcha_attempts2:
+                                time.sleep(2)
+                                continue
+                            else:
+                                logger.warning(f"{runner_id}: Could not solve second captcha, continuing anyway...")
+                                break
+
+                        # Enter captcha solution inside iframe
+                        logger.info(f"{runner_id}: Entering second captcha solution: {captcha_solution2}...")
+                        captcha_input2 = iframe2.locator('input[name="captchaGuess"], input[placeholder*="verification"], input[placeholder*="answer"]')
+                        captcha_input2.clear()
+                        captcha_input2.fill(captcha_solution2)
+                        time.sleep(1)
+
+                        # Click Submit inside iframe
+                        logger.info(f"{runner_id}: Clicking Submit...")
+                        submit_captcha_button = iframe2.locator('button[type="submit"], button:has-text("Submit")').first
+                        submit_captcha_button.click()
+                        time.sleep(3)
+
+                        # Check for error message
+                        try:
+                            error_message2 = iframe2.locator('div.awsui_error_1i0s3_1goap_185, div[id*="form-error"]:has-text("wasn\'t quite right")').first
+                            if error_message2.is_visible(timeout=3000):
+                                error_text2 = error_message2.inner_text()
+                                logger.warning(f"{runner_id}: Second captcha error on attempt {attempt}: {error_text2}")
+                                if attempt < max_captcha_attempts2:
+                                    time.sleep(2)
+                                    continue
+                                else:
+                                    logger.warning(f"{runner_id}: Second captcha failed after {max_captcha_attempts2} attempts, continuing...")
+                                    break
+                        except:
+                            # No error message, captcha was successful
+                            logger.success(f"{runner_id}: Second captcha solved successfully on attempt {attempt}!")
+                            captcha_solved2 = True
+                            time.sleep(2)
+                            break
+
+                        # If we get here without error, captcha was successful
+                        captcha_solved2 = True
+                        break
+
+                    except Exception as e:
+                        logger.error(f"{runner_id}: Error on second captcha attempt {attempt}: {e}")
+                        if attempt < max_captcha_attempts2:
+                            time.sleep(2)
+                            continue
+                        else:
+                            logger.warning(f"{runner_id}: Second captcha failed, continuing anyway...")
+                            break
 
             except Exception as e:
                 logger.error(f"{runner_id}: Error handling second iframe captcha: {e}")
@@ -739,31 +811,56 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
                 except Exception as e:
                     logger.warning(f"{runner_id}: Error clicking Send SMS on retry {retry + 1}: {e}")
 
-                # Solve captcha again if it appears (iframe-based)
+                # Solve captcha again if it appears (iframe-based, with retry logic)
                 try:
-                    # Check for Verify button
-                    verify_button_retry = page.locator('button:has-text("Verify")').first
-                    if verify_button_retry.is_visible(timeout=3000):
-                        logger.info(f"{runner_id}: Clicking Verify button on retry {retry + 1}...")
-                        verify_button_retry.click()
-                        time.sleep(3)
-
                     # Try iframe captcha
                     iframe_retry = page.frame_locator('iframe#core-container, iframe[title="iframe"]').first
                     captcha_img3 = iframe_retry.locator('img[alt="captcha"]')
 
                     if captcha_img3.is_visible(timeout=5000):
-                        captcha_src3 = captcha_img3.get_attribute("src")
-                        captcha_solution3 = solve_captcha_yescaptcha(captcha_src3, page)
+                        # Retry loop for retry captcha (up to 3 attempts)
+                        for captcha_retry_attempt in range(1, 4):
+                            logger.info(f"{runner_id}: Retry {retry + 1} - Captcha attempt {captcha_retry_attempt}/3")
 
-                        if captcha_solution3:
-                            captcha_input3 = iframe_retry.locator('input[name="captchaGuess"], input[placeholder*="verification"]')
-                            captcha_input3.fill(captcha_solution3)
-                            time.sleep(1)
+                            try:
+                                captcha_src3 = captcha_img3.get_attribute("src")
+                                captcha_solution3 = solve_captcha_yescaptcha(captcha_src3, page)
 
-                            submit_button3 = iframe_retry.locator('button[type="submit"], button:has-text("Submit")').first
-                            submit_button3.click()
-                            time.sleep(3)
+                                if captcha_solution3:
+                                    captcha_input3 = iframe_retry.locator('input[name="captchaGuess"], input[placeholder*="verification"]')
+                                    captcha_input3.clear()
+                                    captcha_input3.fill(captcha_solution3)
+                                    time.sleep(1)
+
+                                    submit_button3 = iframe_retry.locator('button[type="submit"], button:has-text("Submit")').first
+                                    submit_button3.click()
+                                    time.sleep(3)
+
+                                    # Check for error
+                                    try:
+                                        error_msg3 = iframe_retry.locator('div.awsui_error_1i0s3_1goap_185, div[id*="form-error"]:has-text("wasn\'t quite right")').first
+                                        if error_msg3.is_visible(timeout=2000):
+                                            logger.warning(f"{runner_id}: Retry captcha error on attempt {captcha_retry_attempt}")
+                                            if captcha_retry_attempt < 3:
+                                                time.sleep(2)
+                                                # Reload captcha image
+                                                captcha_img3 = iframe_retry.locator('img[alt="captcha"]')
+                                                continue
+                                            else:
+                                                logger.warning(f"{runner_id}: Retry captcha failed after 3 attempts")
+                                                break
+                                    except:
+                                        logger.success(f"{runner_id}: Retry captcha solved on attempt {captcha_retry_attempt}!")
+                                        break
+
+                                    break
+                            except Exception as e:
+                                logger.warning(f"{runner_id}: Error on retry captcha attempt {captcha_retry_attempt}: {e}")
+                                if captcha_retry_attempt < 3:
+                                    time.sleep(2)
+                                    continue
+                                else:
+                                    break
                 except Exception as iframe_error:
                     # Fallback to non-iframe
                     try:
@@ -774,6 +871,7 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
 
                             if captcha_solution3:
                                 captcha_input3 = page.locator('input[name="captchaGuess"]')
+                                captcha_input3.clear()
                                 captcha_input3.fill(captcha_solution3)
                                 time.sleep(1)
 
