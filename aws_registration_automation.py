@@ -50,42 +50,59 @@ def generate_random_numbers(length):
 def check_and_handle_error_alert(page, button_locator, button_description, runner_id, max_retries=3):
     """
     Check for error alert and retry clicking button with human-like behavior
-    Returns True if successful, False if failed after retries
+    Returns True if successful (no error alert), False if failed after retries
     """
     for attempt in range(max_retries):
         try:
-            # Check for error alert
-            error_alert = page.locator('div[data-testid="error-alert"]')
-            if error_alert.is_visible(timeout=2000):
-                logger.warning(f"{runner_id}: Error alert detected on attempt {attempt + 1}/{max_retries}")
+            # Wait a moment for any error alert to appear after button action
+            time.sleep(random.uniform(0.8, 1.2))
+
+            # Check if error alert is visible
+            error_alert = page.locator('div[data-testid="error-alert"][aria-hidden="false"]')
+            is_error_visible = error_alert.is_visible(timeout=1500)
+
+            if is_error_visible:
+                logger.warning(f"{runner_id}: Error alert detected! Attempt {attempt + 1}/{max_retries} to fix...")
 
                 # Dismiss the alert first
                 try:
-                    dismiss_button = error_alert.locator('button').first
-                    dismiss_button.click(timeout=2000)
-                    time.sleep(0.3)
-                except:
-                    pass
+                    dismiss_button = error_alert.locator('button.awsui_dismiss-button_mx3cw_ocy3i_400').first
+                    if dismiss_button.is_visible(timeout=1000):
+                        dismiss_button.click(timeout=2000)
+                        logger.info(f"{runner_id}: Dismissed error alert")
+                        time.sleep(0.4)
+                except Exception as dismiss_err:
+                    logger.warning(f"{runner_id}: Could not dismiss alert: {dismiss_err}")
 
-                # Wait a bit before retry
-                time.sleep(random.uniform(0.5, 1.0))
+                # Wait a random amount (human-like)
+                time.sleep(random.uniform(0.6, 1.2))
 
-                # Human-like click with slight randomness
-                logger.info(f"{runner_id}: Retrying {button_description} with human-like behavior...")
-                button_locator.click(force=True, timeout=5000)
-                time.sleep(random.uniform(0.8, 1.5))
+                # Retry clicking the button with human-like behavior
+                logger.info(f"{runner_id}: Retrying {button_description} (attempt {attempt + 1})...")
+                try:
+                    button_locator.click(force=True, timeout=5000)
+                    time.sleep(random.uniform(0.5, 0.9))
+                except Exception as click_err:
+                    logger.error(f"{runner_id}: Failed to click button: {click_err}")
+                    if attempt == max_retries - 1:
+                        return False
+                    continue
+
+                # Continue loop to check if error still appears
+
             else:
-                # No error, success
+                # No error alert visible - success!
+                logger.success(f"{runner_id}: No error alert - {button_description} successful")
                 return True
 
         except Exception as e:
-            if attempt < max_retries - 1:
-                logger.warning(f"{runner_id}: Retry {attempt + 1} failed: {e}")
-                time.sleep(random.uniform(0.5, 1.0))
-            else:
-                logger.error(f"{runner_id}: All retries failed for {button_description}")
+            logger.error(f"{runner_id}: Error in alert handling (attempt {attempt + 1}): {e}")
+            if attempt == max_retries - 1:
                 return False
+            time.sleep(random.uniform(0.5, 1.0))
 
+    # If we exhausted all retries and still have errors
+    logger.error(f"{runner_id}: Failed to clear error alert after {max_retries} attempts")
     return False
 
 
@@ -358,7 +375,19 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
             verify_button = page.locator('button[data-testid="collect-email-submit-button"]')
             verify_button.wait_for(state="visible", timeout=10000)
             verify_button.click()
-            time.sleep(1)
+            time.sleep(0.8)
+
+            # Check for error alert and retry if needed (before captcha appears)
+            logger.info(f"{runner_id}: Checking for error alert after verify button click...")
+            if not check_and_handle_error_alert(page, verify_button, "Verify email address button", runner_id, max_retries=5):
+                logger.error(f"{runner_id}: Failed to verify email address after retries")
+                savecreated('failed', f"{email_address} - Email verification failed with persistent error alert")
+                browser.close()
+                if progress_bar:
+                    progress_bar.update(1)
+                return
+
+            time.sleep(1.5)
 
             # Step 5: Handle AWS Security Verification (iframe-based captcha)
             logger.info(f"{runner_id}: Waiting for security verification iframe (appears automatically)...")
