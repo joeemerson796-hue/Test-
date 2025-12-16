@@ -644,21 +644,36 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
             # Step 23: Select expiration month (random)
             logger.info(f"{runner_id}: Selecting expiration month...")
             month_button = page.locator('button#expirationMonth')
+            month_button.wait_for(state="visible", timeout=10000)
             month_button.click()
-            time.sleep(1)
+            time.sleep(1.5)
 
-            # Select a random month (e.g., 05)
+            # Wait for month dropdown to open and select month 05
+            logger.info(f"{runner_id}: Waiting for month dropdown to open...")
+            month_dropdown = page.locator('div.awsui_dropdown_qwoo0_8ly6o_153[aria-hidden="false"]').first
+            month_dropdown.wait_for(state="visible", timeout=10000)
+            time.sleep(0.5)
+
             month_option = page.locator('[role="option"]:has-text("05")').first
+            month_option.wait_for(state="visible", timeout=10000)
             month_option.click()
             time.sleep(1)
 
             # Step 24: Select expiration year (2027)
             logger.info(f"{runner_id}: Selecting expiration year 2027...")
             year_button = page.locator('button#expirationYear')
+            year_button.wait_for(state="visible", timeout=10000)
             year_button.click()
-            time.sleep(1)
+            time.sleep(1.5)
+
+            # Wait for year dropdown to open and select year 2027
+            logger.info(f"{runner_id}: Waiting for year dropdown to open...")
+            year_dropdown = page.locator('div.awsui_dropdown_qwoo0_8ly6o_153[aria-hidden="false"]').first
+            year_dropdown.wait_for(state="visible", timeout=10000)
+            time.sleep(0.5)
 
             year_option = page.locator('[role="option"]:has-text("2027")').first
+            year_option.wait_for(state="visible", timeout=10000)
             year_option.click()
             time.sleep(1)
 
