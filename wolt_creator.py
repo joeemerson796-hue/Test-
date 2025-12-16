@@ -6,9 +6,9 @@ import aiohttp
 from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeout
 from datetime import datetime
 import sys
+import argparse
 
 # Configuration
-MAX_WORKERS = 3
 MAX_EMAIL_ATTEMPTS = 15
 SMS_RESEND_COUNT = 4
 
@@ -92,23 +92,32 @@ async def create_account(worker_num, api_key, phone_number):
             await page.goto('https://wolt.com/', wait_until='domcontentloaded')
             await asyncio.sleep(2)
 
+            # Step 3.5: Handle cookie consent if appears
+            try:
+                cookie_button = page.locator('button[data-test-id="decline-button"]')
+                if await cookie_button.is_visible(timeout=3000):
+                    print(f"[Worker {worker_num}] 🍪 Declining cookies...")
+                    await cookie_button.click()
+                    await asyncio.sleep(1)
+            except:
+                pass  # No cookie modal
+
             # Step 4: Click Sign up
             print(f"[Worker {worker_num}] 🖱️  Clicking Sign up...")
             await page.click('button[data-test-id="UserStatus.Signup"]', timeout=10000)
             await asyncio.sleep(2)
 
-            # Step 5: Enter email in iframe
+            # Step 5: Enter email in modal (NOT iframe)
             print(f"[Worker {worker_num}] 📝 Entering email...")
-            frame = page.frame_locator('iframe').first
-            await frame.locator('input[data-test-id="MethodSelect.EmailInput"]').fill(email)
+            await page.locator('input[data-test-id="MethodSelect.EmailInput"]').fill(email)
             await asyncio.sleep(1)
 
             # Step 6: Click Continue
-            await frame.locator('button[data-test-id="StepMethodSelect.NextButton"]').click()
+            await page.locator('button[data-test-id="StepMethodSelect.NextButton"]').click()
 
             # Step 7: Wait for confirmation
             print(f"[Worker {worker_num}] ⏳ Waiting for email confirmation...")
-            await frame.locator('h2:has-text("Great, check your inbox!")').wait_for(timeout=20000)
+            await page.locator('h2:has-text("Great, check your inbox!")').wait_for(timeout=20000)
             print(f"[Worker {worker_num}] ✅ Email sent!")
 
             # Step 8: Get verification link
@@ -124,61 +133,85 @@ async def create_account(worker_num, api_key, phone_number):
             # Step 9: Open verification link
             print(f"[Worker {worker_num}] 🔗 Opening verification link...")
             await page.goto(verification_link, wait_until='domcontentloaded')
-            await asyncio.sleep(2)
-
-            # Step 10: Fill registration form
-            frame2 = page.frame_locator('iframe').first
-
-            # Select Hungary
-            print(f"[Worker {worker_num}] 🇭🇺 Selecting Hungary...")
-            await frame2.locator('input#CreateAccount\\.Country').click()
-            await asyncio.sleep(1)
-            await frame2.locator('li:has-text("Hungary")').first.click()
-            await asyncio.sleep(1)
-
-            # Generate names
-            first_name = random_name(9)
-            last_name = random_name(10)
-
-            # Enter names
-            print(f"[Worker {worker_num}] 👤 Entering name: {first_name} {last_name}")
-            await frame2.locator('input[data-test-id="CreateAccount.FirstName"]').fill(first_name)
-            await asyncio.sleep(0.5)
-            await frame2.locator('input[data-test-id="CreateAccount.LastName"]').fill(last_name)
-            await asyncio.sleep(0.5)
-
-            # Select Ukraine phone code
-            print(f"[Worker {worker_num}] 🇺🇦 Selecting Ukraine (+380)...")
-            await frame2.locator('input#CreateAccount\\.PhoneNumberCountryCode').click()
-            await asyncio.sleep(1)
-            await frame2.locator('li:has-text("Ukraine")').first.click()
-            await asyncio.sleep(1)
-
-            # Enter phone number
-            print(f"[Worker {worker_num}] 📱 Entering phone: +380{phone_number}")
-            await frame2.locator('input[data-test-id="CreateAccount.PhoneNumber"]').fill(phone_number)
-            await asyncio.sleep(1)
-
-            # Click Next
-            await frame2.locator('button[data-test-id="CreateAccount.Continue"]').click()
             await asyncio.sleep(3)
 
-            # Click Send SMS
-            print(f"[Worker {worker_num}] 📲 Sending SMS verification...")
-            await frame2.locator('button[data-test-id="VerifyPhoneNumberMethodSelect.SmsButton"]').click()
-            await asyncio.sleep(3)
+            # Step 10: Fill registration form (try iframe first, fallback to page)
+            # Check if form is in iframe or directly on page
+            try:
+                # Try iframe first
+                frames = page.frames
+                form_locator = None
 
-            # Resend SMS 4 times
-            for i in range(SMS_RESEND_COUNT):
-                print(f"[Worker {worker_num}] 🔄 Resend {i + 1}/{SMS_RESEND_COUNT}...")
+                # Check if country input exists in iframe
+                for frame in frames:
+                    try:
+                        country_input = frame.locator('input#CreateAccount\\.Country')
+                        if await country_input.count() > 0:
+                            print(f"[Worker {worker_num}] 📋 Found form in iframe")
+                            form_locator = frame
+                            break
+                    except:
+                        continue
 
-                # Click "I didn't get a code"
-                await frame2.locator('button[data-test-id="VerifyCode.CodeNotReceived"]').click()
-                await asyncio.sleep(2)
+                # If not found in iframe, use page directly
+                if not form_locator:
+                    print(f"[Worker {worker_num}] 📋 Form is on main page")
+                    form_locator = page
 
-                # Click "Resend code by SMS"
-                await frame2.locator('button[data-test-id="NoCodeReceived.SmsButton"]').click()
+                # Select Hungary
+                print(f"[Worker {worker_num}] 🇭🇺 Selecting Hungary...")
+                await form_locator.locator('input#CreateAccount\\.Country').click()
+                await asyncio.sleep(1)
+                await form_locator.locator('li:has-text("Hungary")').first.click()
+                await asyncio.sleep(1)
+
+                # Generate names
+                first_name = random_name(9)
+                last_name = random_name(10)
+
+                # Enter names
+                print(f"[Worker {worker_num}] 👤 Entering name: {first_name} {last_name}")
+                await form_locator.locator('input[data-test-id="CreateAccount.FirstName"]').fill(first_name)
+                await asyncio.sleep(0.5)
+                await form_locator.locator('input[data-test-id="CreateAccount.LastName"]').fill(last_name)
+                await asyncio.sleep(0.5)
+
+                # Select Ukraine phone code
+                print(f"[Worker {worker_num}] 🇺🇦 Selecting Ukraine (+380)...")
+                await form_locator.locator('input#CreateAccount\\.PhoneNumberCountryCode').click()
+                await asyncio.sleep(1)
+                await form_locator.locator('li:has-text("Ukraine")').first.click()
+                await asyncio.sleep(1)
+
+                # Enter phone number
+                print(f"[Worker {worker_num}] 📱 Entering phone: +380{phone_number}")
+                await form_locator.locator('input[data-test-id="CreateAccount.PhoneNumber"]').fill(phone_number)
+                await asyncio.sleep(1)
+
+                # Click Next
+                await form_locator.locator('button[data-test-id="CreateAccount.Continue"]').click()
                 await asyncio.sleep(3)
+
+                # Click Send SMS
+                print(f"[Worker {worker_num}] 📲 Sending SMS verification...")
+                await form_locator.locator('button[data-test-id="VerifyPhoneNumberMethodSelect.SmsButton"]').click()
+                await asyncio.sleep(3)
+
+                # Resend SMS 4 times
+                for i in range(SMS_RESEND_COUNT):
+                    print(f"[Worker {worker_num}] 🔄 Resend {i + 1}/{SMS_RESEND_COUNT}...")
+
+                    # Click "I didn't get a code"
+                    await form_locator.locator('button[data-test-id="VerifyCode.CodeNotReceived"]').click()
+                    await asyncio.sleep(2)
+
+                    # Click "Resend code by SMS"
+                    await form_locator.locator('button[data-test-id="NoCodeReceived.SmsButton"]').click()
+                    await asyncio.sleep(3)
+
+            except Exception as form_error:
+                print(f"[Worker {worker_num}] ❌ Form error: {str(form_error)[:100]}")
+                raise
 
             # Save account info
             elapsed = (datetime.now() - start_time).total_seconds()
@@ -205,7 +238,7 @@ async def create_account(worker_num, api_key, phone_number):
             except:
                 pass
 
-async def main():
+async def main(workers):
     """Main function"""
     try:
         # Read API keys
@@ -225,16 +258,16 @@ async def main():
             return
 
         print(f"🚀 Starting with {len(keys)} API keys and {len(numbers)} phone numbers")
-        print(f"⚙️  Workers: {MAX_WORKERS} | SMS Resends: {SMS_RESEND_COUNT}\n")
+        print(f"⚙️  Workers: {workers} | SMS Resends: {SMS_RESEND_COUNT}\n")
 
         success_count = 0
         fail_count = 0
 
         # Process in batches
-        for i in range(0, len(numbers), MAX_WORKERS):
+        for i in range(0, len(numbers), workers):
             batch = []
 
-            for j in range(MAX_WORKERS):
+            for j in range(workers):
                 index = i + j
                 if index >= len(numbers):
                     break
@@ -260,7 +293,7 @@ async def main():
             print(f"{'='*60}\n")
 
             # Small delay between batches
-            if i + MAX_WORKERS < len(numbers):
+            if i + workers < len(numbers):
                 await asyncio.sleep(2)
 
         print(f"\n🎉 DONE! Total: {len(numbers)} | ✅ Success: {success_count} | ❌ Failed: {fail_count}")
@@ -272,4 +305,35 @@ async def main():
         print(f"❌ Fatal error: {e}")
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(
+        description='Wolt Account Creator - Fast async automation',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog='''
+Examples:
+  python wolt_creator.py              # Use default 3 workers
+  python wolt_creator.py --workers 5  # Use 5 workers
+  python wolt_creator.py -w 1         # Use 1 worker (sequential)
+        '''
+    )
+    parser.add_argument(
+        '-w', '--workers',
+        type=int,
+        default=3,
+        help='Number of concurrent workers (default: 3)'
+    )
+
+    args = parser.parse_args()
+
+    # Validate workers count
+    if args.workers < 1:
+        print("❌ Workers must be at least 1")
+        sys.exit(1)
+    elif args.workers > 10:
+        print("⚠️  Warning: Using more than 10 workers may cause issues")
+
+    print(f"{'='*60}")
+    print("🍕 Wolt Account Creator")
+    print(f"{'='*60}\n")
+
+    asyncio.run(main(args.workers))

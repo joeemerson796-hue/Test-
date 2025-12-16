@@ -6,6 +6,9 @@ Fast automated script to create Wolt accounts using Priyo temp mail API and Play
 
 - ⚡ **Fast async/await** implementation with parallel workers
 - 🛡️ **Robust error handling** - continues on failures
+- 🎛️ **Configurable workers** - choose via command line
+- 🍪 **Auto-handles cookies** - declines consent automatically
+- 🔧 **Smart iframe detection** - works with modals or iframes
 - 📧 Uses free.priyo.email API for temporary emails
 - 🤖 Automated account creation on Wolt.com
 - 🔄 SMS verification resend (4 attempts per number)
@@ -23,8 +26,11 @@ playwright install chromium
 echo "your-api-key" > keys.txt
 echo "501234567" > numbers.txt
 
-# Run
+# Run with default 3 workers
 python wolt_creator.py
+
+# Or specify number of workers
+python wolt_creator.py --workers 5
 ```
 
 ## Setup
@@ -45,7 +51,15 @@ another-api-key
 ## Usage
 
 ```bash
+# Default (3 workers)
 python wolt_creator.py
+
+# Custom workers
+python wolt_creator.py --workers 5
+python wolt_creator.py -w 1
+
+# Help
+python wolt_creator.py --help
 ```
 
 ## How It Works
@@ -67,10 +81,13 @@ python wolt_creator.py
 
 ## Configuration
 
-Edit these variables in `wolt_creator.py`:
+**Command Line:**
+```bash
+python wolt_creator.py --workers 5    # Set concurrent workers
+```
 
+**Script Variables** (edit in `wolt_creator.py`):
 ```python
-MAX_WORKERS = 3              # Concurrent workers
 MAX_EMAIL_ATTEMPTS = 15      # Email fetch retries
 SMS_RESEND_COUNT = 4         # SMS resend count
 ```
@@ -87,8 +104,10 @@ Email: example@priyomail.top | Password: abc123 | Name: Firstname Lastname | Pho
 - ✅ Timeouts handled gracefully
 - ✅ Failed accounts logged but don't stop script
 - ✅ Progress counter shows success/fail stats
-- ✅ Auto-retries for email fetching
+- ✅ Auto-retries for email fetching (15 attempts)
 - ✅ Browser closes even on errors
+- ✅ Cookie consent auto-handled
+- ✅ Smart modal/iframe detection
 
 ## Notes
 
