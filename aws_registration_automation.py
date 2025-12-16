@@ -575,22 +575,23 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
 
                 # Wait for the dropdown dialog to appear
                 logger.info(f"{runner_id}: Waiting for country dropdown to open...")
-                dropdown = page.locator('div[role="dialog"], div.awsui_dropdown_qwoo0').first
-                dropdown.wait_for(state="visible", timeout=10000)
+                country_dropdown = page.locator('div[role="dialog"][aria-labelledby*="address.country"]').first
+                country_dropdown.wait_for(state="visible", timeout=10000)
                 time.sleep(1)
 
-                # Now search for Mozambique
-                logger.info(f"{runner_id}: Searching for Mozambique...")
-                country_search = page.locator('input[role="combobox"]').first
+                # Now search for Mozambique - use the search input INSIDE the country dropdown
+                logger.info(f"{runner_id}: Searching for Mozambique in country dropdown...")
+                # Be specific - get the combobox inside the country dialog
+                country_search = country_dropdown.locator('input[role="combobox"]')
                 country_search.wait_for(state="visible", timeout=10000)
                 country_search.click()  # Click to focus
                 time.sleep(0.5)
                 country_search.fill("Mozambique")
                 time.sleep(2)
 
-                # Select Mozambique from the results
+                # Select Mozambique from the results - also inside the dropdown
                 logger.info(f"{runner_id}: Selecting Mozambique from list...")
-                mozambique_country = page.locator('[role="option"]:has-text("Mozambique")').first
+                mozambique_country = country_dropdown.locator('[role="option"]:has-text("Mozambique")').first
                 mozambique_country.wait_for(state="visible", timeout=10000)
                 mozambique_country.click()
                 time.sleep(1)
