@@ -47,6 +47,48 @@ def generate_random_numbers(length):
     return ''.join(random.choice(string.digits) for _ in range(length))
 
 
+def check_and_handle_error_alert(page, button_locator, button_description, runner_id, max_retries=3):
+    """
+    Check for error alert and retry clicking button with human-like behavior
+    Returns True if successful, False if failed after retries
+    """
+    for attempt in range(max_retries):
+        try:
+            # Check for error alert
+            error_alert = page.locator('div[data-testid="error-alert"]')
+            if error_alert.is_visible(timeout=2000):
+                logger.warning(f"{runner_id}: Error alert detected on attempt {attempt + 1}/{max_retries}")
+
+                # Dismiss the alert first
+                try:
+                    dismiss_button = error_alert.locator('button').first
+                    dismiss_button.click(timeout=2000)
+                    time.sleep(0.3)
+                except:
+                    pass
+
+                # Wait a bit before retry
+                time.sleep(random.uniform(0.5, 1.0))
+
+                # Human-like click with slight randomness
+                logger.info(f"{runner_id}: Retrying {button_description} with human-like behavior...")
+                button_locator.click(force=True, timeout=5000)
+                time.sleep(random.uniform(0.8, 1.5))
+            else:
+                # No error, success
+                return True
+
+        except Exception as e:
+            if attempt < max_retries - 1:
+                logger.warning(f"{runner_id}: Retry {attempt + 1} failed: {e}")
+                time.sleep(random.uniform(0.5, 1.0))
+            else:
+                logger.error(f"{runner_id}: All retries failed for {button_description}")
+                return False
+
+    return False
+
+
 def solve_captcha_yescaptcha(image_url, page):
     """
     Solve captcha using YesCaptcha API
@@ -294,7 +336,7 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
             # Step 1: Navigate to registration page
             logger.info(f"{runner_id}: Navigating to AWS registration page...")
             page.goto(registration_url, wait_until="domcontentloaded")
-            time.sleep(3)
+            time.sleep(1)
 
             # Step 2: Enter email address
             logger.info(f"{runner_id}: Entering email: {email_address}...")
@@ -316,7 +358,7 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
             verify_button = page.locator('button[data-testid="collect-email-submit-button"]')
             verify_button.wait_for(state="visible", timeout=10000)
             verify_button.click()
-            time.sleep(3)
+            time.sleep(1)
 
             # Step 5: Handle AWS Security Verification (iframe-based captcha)
             logger.info(f"{runner_id}: Waiting for security verification iframe (appears automatically)...")
@@ -345,7 +387,7 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
                         logger.info(f"{runner_id}: Waiting for captcha image inside iframe...")
                         captcha_img = iframe.locator('img[alt="captcha"]')
                         captcha_img.wait_for(state="visible", timeout=20000)
-                        time.sleep(2)
+                        time.sleep(0.8)
 
                         captcha_src = captcha_img.get_attribute("src")
                         logger.info(f"{runner_id}: Captcha image found: {captcha_src[:100]}...")
@@ -356,7 +398,7 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
                             logger.error(f"{runner_id}: Failed to solve captcha on attempt {attempt}")
                             if attempt < max_captcha_attempts:
                                 logger.info(f"{runner_id}: Retrying captcha...")
-                                time.sleep(2)
+                                time.sleep(0.8)
                                 continue
                             else:
                                 logger.error(f"{runner_id}: Failed to solve captcha after {max_captcha_attempts} attempts")
@@ -378,7 +420,7 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
                         logger.info(f"{runner_id}: Clicking Submit button...")
                         submit_button = iframe.locator('button[type="submit"], button:has-text("Submit")').first
                         submit_button.click()
-                        time.sleep(3)
+                        time.sleep(1)
 
                         # Check for error message
                         try:
@@ -388,7 +430,7 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
                                 logger.warning(f"{runner_id}: Captcha error on attempt {attempt}: {error_text}")
                                 if attempt < max_captcha_attempts:
                                     logger.info(f"{runner_id}: Retrying captcha...")
-                                    time.sleep(2)
+                                    time.sleep(0.8)
                                     continue
                                 else:
                                     logger.error(f"{runner_id}: Captcha failed after {max_captcha_attempts} attempts")
@@ -401,7 +443,7 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
                             # No error message, captcha was successful
                             logger.success(f"{runner_id}: Captcha solved successfully on attempt {attempt}!")
                             captcha_solved = True
-                            time.sleep(2)
+                            time.sleep(0.8)
                             break
 
                         # If we get here without error, captcha was successful
@@ -412,7 +454,7 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
                         logger.error(f"{runner_id}: Error on captcha attempt {attempt}: {e}")
                         if attempt < max_captcha_attempts:
                             logger.info(f"{runner_id}: Retrying captcha...")
-                            time.sleep(2)
+                            time.sleep(0.8)
                             continue
                         else:
                             raise
@@ -458,7 +500,7 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
                     logger.info(f"{runner_id}: Clicking Submit button (fallback)...")
                     submit_button = page.locator('button[type="submit"]').filter(has_text="Submit")
                     submit_button.click()
-                    time.sleep(5)
+                    time.sleep(2)
                 except Exception as fallback_error:
                     logger.error(f"{runner_id}: Fallback also failed: {fallback_error}")
                     savecreated('failed', f"{email_address} - Could not handle captcha")
@@ -486,12 +528,23 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
             otp_input.fill(verification_code)
             time.sleep(1)
 
-            # Click Verify button (after OTP)
+            # Click Verify button (after OTP) with error alert handling
             logger.info(f"{runner_id}: Clicking Verify button after OTP...")
             verify_button_otp = page.locator('button[data-testid="verify-email-submit-button"]')
             verify_button_otp.wait_for(state="visible", timeout=10000)
             verify_button_otp.click()
-            time.sleep(3)
+            time.sleep(0.8)
+
+            # Check for error alert and retry if needed
+            if not check_and_handle_error_alert(page, verify_button_otp, "Verify button", runner_id):
+                logger.error(f"{runner_id}: Failed to verify OTP after retries")
+                savecreated('failed', f"{email_address} - OTP verification failed with error alert")
+                browser.close()
+                if progress_bar:
+                    progress_bar.update(1)
+                return
+
+            time.sleep(1.5)
 
             # Step 10: Set password
             logger.info(f"{runner_id}: Setting password...")
@@ -509,7 +562,7 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
             logger.info(f"{runner_id}: Clicking Continue (step 1 of 5)...")
             continue_step1_button = page.locator('button[data-testid="create-password-submit-button"]')
             continue_step1_button.click()
-            time.sleep(5)
+            time.sleep(2)
 
             # NEW STEP: Choose account plan (Free plan for 6 months trial)
             logger.info(f"{runner_id}: Choosing account plan...")
@@ -519,7 +572,7 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
                 free_plan_button.wait_for(state="visible", timeout=15000)
                 logger.info(f"{runner_id}: Clicking 'Choose free plan' button...")
                 free_plan_button.click()
-                time.sleep(3)
+                time.sleep(1)
                 logger.success(f"{runner_id}: Free plan selected")
             except Exception as e:
                 logger.warning(f"{runner_id}: Could not find account plan selection, may have been skipped: {e}")
@@ -570,7 +623,7 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
                 country_button.wait_for(state="visible", timeout=10000)
                 logger.info(f"{runner_id}: Clicking country dropdown...")
                 country_button.click()
-                time.sleep(1.5)
+                time.sleep(0.8)
 
                 # Type "Mozambique" directly in the search input
                 logger.info(f"{runner_id}: Typing Mozambique in search...")
@@ -578,7 +631,7 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
                 country_search.wait_for(state="visible", timeout=10000)
                 time.sleep(0.5)
                 country_search.fill("Mozambique")
-                time.sleep(2)
+                time.sleep(0.8)
 
                 # Select Mozambique from the dropdown options
                 logger.info(f"{runner_id}: Selecting Mozambique from list...")
@@ -628,7 +681,7 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
             logger.info(f"{runner_id}: Clicking Agree and Continue (step 2 of 5)...")
             agree_button = page.locator('button[data-testid="contact-information-submit-button"]')
             agree_button.click()
-            time.sleep(5)
+            time.sleep(2)
 
             # Save account after step 2 completion
             logger.success(f"{runner_id}: Account created! Saving to created.txt...")
@@ -646,7 +699,7 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
             month_button = page.locator('button#expirationMonth')
             month_button.wait_for(state="visible", timeout=10000)
             month_button.click()
-            time.sleep(1.5)
+            time.sleep(0.8)
 
             # Wait for month dropdown to open and select month (May)
             logger.info(f"{runner_id}: Waiting for month dropdown to open...")
@@ -665,7 +718,7 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
             year_button = page.locator('button#expirationYear')
             year_button.wait_for(state="visible", timeout=10000)
             year_button.click()
-            time.sleep(1.5)
+            time.sleep(0.8)
 
             # Wait for year dropdown to open and select year 2027
             logger.info(f"{runner_id}: Waiting for year dropdown to open...")
@@ -696,7 +749,7 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
             logger.info(f"{runner_id}: Clicking Verify and continue (step 3 of 5)...")
             verify_payment_button = page.locator('button[data-testid="payment-information-submit-button"]')
             verify_payment_button.click()
-            time.sleep(5)
+            time.sleep(2)
 
             # Step 28: Phone verification - select country Mozambique (+258)
             logger.info(f"{runner_id}: Selecting phone verification country Mozambique (+258)...")
@@ -725,7 +778,7 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
             logger.info(f"{runner_id}: Clicking Send SMS (step 4 of 5)...")
             send_sms_button = page.locator('button[type="submit"]').filter(has_text="Send SMS")
             send_sms_button.click()
-            time.sleep(3)
+            time.sleep(1)
 
             # Step 31: Solve second captcha (iframe-based) with retry logic
             logger.info(f"{runner_id}: Waiting for second captcha iframe (appears automatically)...")
@@ -753,7 +806,7 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
                         # Wait for captcha image inside iframe
                         captcha_img2 = iframe2.locator('img[alt="captcha"]')
                         captcha_img2.wait_for(state="visible", timeout=20000)
-                        time.sleep(2)
+                        time.sleep(0.8)
 
                         captcha_src2 = captcha_img2.get_attribute("src")
                         logger.info(f"{runner_id}: Second captcha found...")
@@ -763,7 +816,7 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
                         if not captcha_solution2:
                             logger.error(f"{runner_id}: Failed to solve second captcha on attempt {attempt}")
                             if attempt < max_captcha_attempts2:
-                                time.sleep(2)
+                                time.sleep(0.8)
                                 continue
                             else:
                                 logger.warning(f"{runner_id}: Could not solve second captcha, continuing anyway...")
@@ -780,7 +833,7 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
                         logger.info(f"{runner_id}: Clicking Submit...")
                         submit_captcha_button = iframe2.locator('button[type="submit"], button:has-text("Submit")').first
                         submit_captcha_button.click()
-                        time.sleep(3)
+                        time.sleep(1)
 
                         # Check for error message
                         try:
@@ -789,7 +842,7 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
                                 error_text2 = error_message2.inner_text()
                                 logger.warning(f"{runner_id}: Second captcha error on attempt {attempt}: {error_text2}")
                                 if attempt < max_captcha_attempts2:
-                                    time.sleep(2)
+                                    time.sleep(0.8)
                                     continue
                                 else:
                                     logger.warning(f"{runner_id}: Second captcha failed after {max_captcha_attempts2} attempts, continuing...")
@@ -798,7 +851,7 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
                             # No error message, captcha was successful
                             logger.success(f"{runner_id}: Second captcha solved successfully on attempt {attempt}!")
                             captcha_solved2 = True
-                            time.sleep(2)
+                            time.sleep(0.8)
                             break
 
                         # If we get here without error, captcha was successful
@@ -808,7 +861,7 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
                     except Exception as e:
                         logger.error(f"{runner_id}: Error on second captcha attempt {attempt}: {e}")
                         if attempt < max_captcha_attempts2:
-                            time.sleep(2)
+                            time.sleep(0.8)
                             continue
                         else:
                             logger.warning(f"{runner_id}: Second captcha failed, continuing anyway...")
@@ -834,7 +887,7 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
 
                         submit_captcha_button = page.locator('button[type="submit"]').filter(has_text="Submit")
                         submit_captcha_button.click()
-                        time.sleep(3)
+                        time.sleep(1)
                     else:
                         logger.warning(f"{runner_id}: Second captcha solve failed (fallback)")
                 except Exception as fallback_error:
@@ -849,7 +902,7 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
                 # Refresh the page
                 logger.info(f"{runner_id}: Refreshing page...")
                 page.reload(wait_until="domcontentloaded")
-                time.sleep(3)
+                time.sleep(1)
 
                 # Re-select country
                 try:
@@ -880,7 +933,7 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
                 try:
                     send_sms_button2 = page.locator('button[type="submit"]').filter(has_text="Send SMS")
                     send_sms_button2.click()
-                    time.sleep(3)
+                    time.sleep(1)
                 except Exception as e:
                     logger.warning(f"{runner_id}: Error clicking Send SMS on retry {retry + 1}: {e}")
 
@@ -907,7 +960,7 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
 
                                     submit_button3 = iframe_retry.locator('button[type="submit"], button:has-text("Submit")').first
                                     submit_button3.click()
-                                    time.sleep(3)
+                                    time.sleep(1)
 
                                     # Check for error
                                     try:
@@ -915,7 +968,7 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
                                         if error_msg3.is_visible(timeout=2000):
                                             logger.warning(f"{runner_id}: Retry captcha error on attempt {captcha_retry_attempt}")
                                             if captcha_retry_attempt < 3:
-                                                time.sleep(2)
+                                                time.sleep(0.8)
                                                 # Reload captcha image
                                                 captcha_img3 = iframe_retry.locator('img[alt="captcha"]')
                                                 continue
@@ -930,7 +983,7 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
                             except Exception as e:
                                 logger.warning(f"{runner_id}: Error on retry captcha attempt {captcha_retry_attempt}: {e}")
                                 if captcha_retry_attempt < 3:
-                                    time.sleep(2)
+                                    time.sleep(0.8)
                                     continue
                                 else:
                                     break
@@ -950,14 +1003,14 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
 
                                 submit_button3 = page.locator('button[type="submit"]').filter(has_text="Submit")
                                 submit_button3.click()
-                                time.sleep(3)
+                                time.sleep(1)
                     except Exception as e:
                         logger.info(f"{runner_id}: No captcha on retry {retry + 1} or error: {e}")
 
             logger.success(f"{runner_id}: AWS automation completed successfully!")
             logger.info(f"{runner_id}: Closing browser...")
 
-            time.sleep(5)
+            time.sleep(2)
             browser.close()
             if progress_bar:
                 progress_bar.update(1)
