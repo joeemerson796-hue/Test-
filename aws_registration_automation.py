@@ -648,13 +648,14 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
             month_button.click()
             time.sleep(1.5)
 
-            # Wait for month dropdown to open and select month 05
+            # Wait for month dropdown to open and select month (May)
             logger.info(f"{runner_id}: Waiting for month dropdown to open...")
             month_dropdown = page.locator('div.awsui_dropdown_qwoo0_8ly6o_153[aria-hidden="false"]').first
             month_dropdown.wait_for(state="visible", timeout=10000)
             time.sleep(0.5)
 
-            month_option = page.locator('[role="option"]:has-text("05")').first
+            # Select May as the expiry month
+            month_option = page.locator('[role="option"]:has-text("May")').first
             month_option.wait_for(state="visible", timeout=10000)
             month_option.click()
             time.sleep(1)
