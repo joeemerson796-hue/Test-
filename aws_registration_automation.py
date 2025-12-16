@@ -565,35 +565,26 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
             # Step 15: Select country (Mozambique)
             logger.info(f"{runner_id}: Selecting country Mozambique...")
             try:
+                # Click country dropdown button
                 country_button = page.locator('button#address\\.country')
                 country_button.wait_for(state="visible", timeout=10000)
-
-                # Always select Mozambique (default is United States)
                 logger.info(f"{runner_id}: Clicking country dropdown...")
                 country_button.click()
-                time.sleep(2)  # Wait for dropdown to open
+                time.sleep(1.5)
 
-                # Wait for the dropdown dialog to appear
-                logger.info(f"{runner_id}: Waiting for country dropdown to open...")
-                country_dropdown = page.locator('div[role="dialog"][aria-labelledby*="address.country"]').first
-                country_dropdown.wait_for(state="visible", timeout=10000)
-                time.sleep(1)
-
-                # Now search for Mozambique - use the search input INSIDE the country dropdown
-                logger.info(f"{runner_id}: Searching for Mozambique in country dropdown...")
-                # Be specific - get the combobox inside the country dialog
-                country_search = country_dropdown.locator('input[role="combobox"]')
+                # Type "Mozambique" directly in the search input
+                logger.info(f"{runner_id}: Typing Mozambique in search...")
+                country_search = page.locator('input[role="combobox"]').last  # Use .last to get the country search
                 country_search.wait_for(state="visible", timeout=10000)
-                country_search.click()  # Click to focus
                 time.sleep(0.5)
                 country_search.fill("Mozambique")
                 time.sleep(2)
 
-                # Select Mozambique from the results - also inside the dropdown
+                # Select Mozambique from the dropdown options
                 logger.info(f"{runner_id}: Selecting Mozambique from list...")
-                mozambique_country = country_dropdown.locator('[role="option"]:has-text("Mozambique")').first
-                mozambique_country.wait_for(state="visible", timeout=10000)
-                mozambique_country.click()
+                mozambique_option = page.locator('[role="option"]:has-text("Mozambique")').first
+                mozambique_option.wait_for(state="visible", timeout=10000)
+                mozambique_option.click()
                 time.sleep(1)
                 logger.success(f"{runner_id}: Country set to Mozambique")
             except Exception as e:
