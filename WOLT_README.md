@@ -4,11 +4,13 @@ Fast automated script to create Wolt accounts using Priyo temp mail API and Play
 
 ## Features
 
-- ⚡ **Fast async/await** implementation with parallel workers
+- ⚡ **Lightning fast** - optimized sleep times and lightweight code
 - 🛡️ **Robust error handling** - continues on failures
+- 🚫 **Rate limit detection** - auto-skips to next account
 - 💬 **Interactive worker selection** - prompts you at runtime
 - 🍪 **Auto-handles cookies** - waits and declines consent modal
 - 🔧 **Smart iframe detection** - works with modals or iframes
+- ⌨️ **Keyboard country selection** - fast and reliable
 - 📧 Uses free.priyo.email API for temporary emails
 - 🤖 Automated account creation on Wolt.com
 - 🔄 SMS verification resend (4 attempts per number)
@@ -109,11 +111,13 @@ Email: example@priyomail.top | Password: abc123 | Name: Firstname Lastname | Pho
 - ✅ Browser closes even on errors
 - ✅ Cookie consent auto-handled
 - ✅ Smart modal/iframe detection
-- ✅ Multiple fallback methods for country selection (4 methods each)
+- ✅ Rate limit detection - skips to next account automatically
+- ✅ Optimized country selection with keyboard typing
 
 ## Notes
 
 - Uses visible browsers for monitoring (set `headless=True` for background)
-- Average time: 45-60 seconds per account
+- Average time: **30-40 seconds per account** (optimized!)
 - API keys rotated automatically
 - Phone numbers must be 9 digits (no +380 prefix)
+- Rate limit error auto-detected and handled

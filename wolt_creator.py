@@ -40,7 +40,7 @@ async def get_verification_link(email, api_key, session, max_attempts=MAX_EMAIL_
     """Poll API for verification email"""
     for attempt in range(max_attempts):
         try:
-            await asyncio.sleep(3)
+            await asyncio.sleep(2)  # Reduced from 3 to 2 seconds
             async with session.get(f'https://free.priyo.email/api/messages/{email}/{api_key}', timeout=10) as resp:
                 messages = await resp.json()
 
@@ -89,29 +89,29 @@ async def create_account(worker_num, api_key, phone_number):
             # Step 3: Go to Wolt
             print(f"[Worker {worker_num}] 🌐 Opening Wolt...")
             await page.goto('https://wolt.com/', wait_until='domcontentloaded')
-            await asyncio.sleep(3)
+            await asyncio.sleep(2)
 
             # Step 3.5: Handle cookie consent (ALWAYS appears)
             try:
                 print(f"[Worker {worker_num}] 🍪 Waiting for cookie modal...")
                 # Wait for cookie modal to appear
                 cookie_button = page.locator('button[data-test-id="decline-button"]')
-                await cookie_button.wait_for(state='visible', timeout=10000)
+                await cookie_button.wait_for(state='visible', timeout=8000)
                 print(f"[Worker {worker_num}] 🍪 Declining cookies...")
                 await cookie_button.click()
-                await asyncio.sleep(2)
+                await asyncio.sleep(1)
             except Exception as e:
                 print(f"[Worker {worker_num}] ⚠️  Cookie modal not found: {str(e)[:50]}")
 
             # Step 4: Click Sign up
             print(f"[Worker {worker_num}] 🖱️  Clicking Sign up...")
             await page.click('button[data-test-id="UserStatus.Signup"]', timeout=10000)
-            await asyncio.sleep(2)
+            await asyncio.sleep(1.5)
 
             # Step 5: Enter email in modal (NOT iframe)
             print(f"[Worker {worker_num}] 📝 Entering email...")
             await page.locator('input[data-test-id="MethodSelect.EmailInput"]').fill(email)
-            await asyncio.sleep(1)
+            await asyncio.sleep(0.5)
 
             # Step 6: Click Continue
             await page.locator('button[data-test-id="StepMethodSelect.NextButton"]').click()
@@ -135,7 +135,7 @@ async def create_account(worker_num, api_key, phone_number):
             # Step 9: Open verification link
             print(f"[Worker {worker_num}] 🔗 Opening verification link...")
             await page.goto(verification_link, wait_until='domcontentloaded')
-            await asyncio.sleep(3)
+            await asyncio.sleep(2)
 
             # Step 10: Fill registration form (try iframe first, fallback to page)
             # Check if form is in iframe or directly on page
@@ -164,44 +164,11 @@ async def create_account(worker_num, api_key, phone_number):
                 print(f"[Worker {worker_num}] 🇭🇺 Selecting Hungary...")
                 country_input = form_locator.locator('input#CreateAccount\\.Country')
                 await country_input.click()
-                await asyncio.sleep(1)
-
-                # Try multiple methods to select Hungary
-                hungary_selected = False
-
-                # Method 1: Type to filter and press Enter
-                try:
-                    await country_input.press_sequentially("Hun", delay=100)
-                    await asyncio.sleep(0.5)
-                    await country_input.press("Enter")
-                    await asyncio.sleep(0.5)
-                    hungary_selected = True
-                    print(f"[Worker {worker_num}] ✅ Hungary selected (method 1)")
-                except Exception as e1:
-                    print(f"[Worker {worker_num}] ⚠️  Method 1 failed, trying method 2...")
-
-                    # Method 2: Find by ID pattern containing HUN
-                    try:
-                        hun_option = form_locator.locator('[id*="HUN"]', has_text="Hungary").first
-                        await hun_option.click(timeout=5000)
-                        await asyncio.sleep(0.5)
-                        hungary_selected = True
-                        print(f"[Worker {worker_num}] ✅ Hungary selected (method 2)")
-                    except Exception as e2:
-                        print(f"[Worker {worker_num}] ⚠️  Method 2 failed, trying method 3...")
-
-                        # Method 3: Find li with role option
-                        try:
-                            hun_option = form_locator.locator('li[role="option"]:has-text("Hungary")').first
-                            await hun_option.click(timeout=5000)
-                            await asyncio.sleep(0.5)
-                            hungary_selected = True
-                            print(f"[Worker {worker_num}] ✅ Hungary selected (method 3)")
-                        except Exception as e3:
-                            print(f"[Worker {worker_num}] ❌ All methods failed for Hungary selection")
-                            raise Exception(f"Could not select Hungary: {e1}, {e2}, {e3}")
-
-                await asyncio.sleep(1)
+                await asyncio.sleep(0.5)
+                await country_input.press_sequentially("Hun", delay=50)
+                await asyncio.sleep(0.3)
+                await country_input.press("Enter")
+                await asyncio.sleep(0.5)
 
                 # Generate names
                 first_name = random_name(9)
@@ -210,86 +177,59 @@ async def create_account(worker_num, api_key, phone_number):
                 # Enter names
                 print(f"[Worker {worker_num}] 👤 Entering name: {first_name} {last_name}")
                 await form_locator.locator('input[data-test-id="CreateAccount.FirstName"]').fill(first_name)
-                await asyncio.sleep(0.5)
+                await asyncio.sleep(0.3)
                 await form_locator.locator('input[data-test-id="CreateAccount.LastName"]').fill(last_name)
-                await asyncio.sleep(0.5)
+                await asyncio.sleep(0.3)
 
                 # Select Ukraine phone code
                 print(f"[Worker {worker_num}] 🇺🇦 Selecting Ukraine (+380)...")
                 phone_country_input = form_locator.locator('input#CreateAccount\\.PhoneNumberCountryCode')
                 await phone_country_input.click()
-                await asyncio.sleep(1)
-
-                # Try multiple methods to select Ukraine
-                ukraine_selected = False
-
-                # Method 1: Type to filter and press Enter
-                try:
-                    await phone_country_input.press_sequentially("Ukr", delay=100)
-                    await asyncio.sleep(0.5)
-                    await phone_country_input.press("Enter")
-                    await asyncio.sleep(0.5)
-                    ukraine_selected = True
-                    print(f"[Worker {worker_num}] ✅ Ukraine selected (method 1)")
-                except Exception as e1:
-                    print(f"[Worker {worker_num}] ⚠️  Method 1 failed, trying method 2...")
-
-                    # Method 2: Find by ID pattern containing UA or Ukraine
-                    try:
-                        ua_option = form_locator.locator('[id*="UA"]', has_text="Ukraine").first
-                        await ua_option.click(timeout=5000)
-                        await asyncio.sleep(0.5)
-                        ukraine_selected = True
-                        print(f"[Worker {worker_num}] ✅ Ukraine selected (method 2)")
-                    except Exception as e2:
-                        print(f"[Worker {worker_num}] ⚠️  Method 2 failed, trying method 3...")
-
-                        # Method 3: Find li with role option
-                        try:
-                            ua_option = form_locator.locator('li[role="option"]:has-text("Ukraine")').first
-                            await ua_option.click(timeout=5000)
-                            await asyncio.sleep(0.5)
-                            ukraine_selected = True
-                            print(f"[Worker {worker_num}] ✅ Ukraine selected (method 3)")
-                        except Exception as e3:
-                            # Method 4: Find by +380
-                            try:
-                                ua_option = form_locator.locator('li[role="option"]:has-text("+380")').first
-                                await ua_option.click(timeout=5000)
-                                await asyncio.sleep(0.5)
-                                ukraine_selected = True
-                                print(f"[Worker {worker_num}] ✅ Ukraine selected (method 4)")
-                            except Exception as e4:
-                                print(f"[Worker {worker_num}] ❌ All methods failed for Ukraine selection")
-                                raise Exception(f"Could not select Ukraine: {e1}, {e2}, {e3}, {e4}")
-
-                await asyncio.sleep(1)
+                await asyncio.sleep(0.5)
+                await phone_country_input.press_sequentially("Ukr", delay=50)
+                await asyncio.sleep(0.3)
+                await phone_country_input.press("Enter")
+                await asyncio.sleep(0.5)
 
                 # Enter phone number
                 print(f"[Worker {worker_num}] 📱 Entering phone: +380{phone_number}")
                 await form_locator.locator('input[data-test-id="CreateAccount.PhoneNumber"]').fill(phone_number)
-                await asyncio.sleep(1)
+                await asyncio.sleep(0.5)
 
                 # Click Next
                 await form_locator.locator('button[data-test-id="CreateAccount.Continue"]').click()
-                await asyncio.sleep(3)
+                await asyncio.sleep(2)
 
                 # Click Send SMS
                 print(f"[Worker {worker_num}] 📲 Sending SMS verification...")
                 await form_locator.locator('button[data-test-id="VerifyPhoneNumberMethodSelect.SmsButton"]').click()
-                await asyncio.sleep(3)
+                await asyncio.sleep(2)
 
                 # Resend SMS 4 times
+                rate_limited = False
                 for i in range(SMS_RESEND_COUNT):
                     print(f"[Worker {worker_num}] 🔄 Resend {i + 1}/{SMS_RESEND_COUNT}...")
 
                     # Click "I didn't get a code"
                     await form_locator.locator('button[data-test-id="VerifyCode.CodeNotReceived"]').click()
-                    await asyncio.sleep(2)
+                    await asyncio.sleep(1)
 
                     # Click "Resend code by SMS"
                     await form_locator.locator('button[data-test-id="NoCodeReceived.SmsButton"]').click()
-                    await asyncio.sleep(3)
+                    await asyncio.sleep(1.5)
+
+                    # Check for rate limit error
+                    try:
+                        rate_limit_error = form_locator.locator('[data-test-id="NoCodeReceived.Error"]')
+                        if await rate_limit_error.is_visible(timeout=2000):
+                            print(f"[Worker {worker_num}] ⚠️  Rate limit reached! Moving to next account...")
+                            rate_limited = True
+                            break
+                    except:
+                        pass  # No error, continue
+
+                if rate_limited:
+                    print(f"[Worker {worker_num}] ⏭️  Skipping to next account due to rate limit")
 
             except Exception as form_error:
                 print(f"[Worker {worker_num}] ❌ Form error: {str(form_error)[:100]}")
