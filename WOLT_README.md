@@ -1,28 +1,38 @@
-# Wolt Account Creator with Temp Mail API
+# Wolt Account Creator (Python + Async)
 
-Automated script to create Wolt accounts using the Priyo temp mail API and Playwright.
+Fast automated script to create Wolt accounts using Priyo temp mail API and Playwright.
 
 ## Features
 
-- Uses free.priyo.email API for temporary emails
-- Automated account creation on Wolt.com
-- Parallel processing with multiple workers
-- SMS verification resend (4 attempts per number)
-- Saves account details to file
+- ⚡ **Fast async/await** implementation with parallel workers
+- 🛡️ **Robust error handling** - continues on failures
+- 📧 Uses free.priyo.email API for temporary emails
+- 🤖 Automated account creation on Wolt.com
+- 🔄 SMS verification resend (4 attempts per number)
+- 💾 Saves account details to file
+- 📊 Real-time progress tracking
 
-## Prerequisites
+## Quick Start
 
 ```bash
-npm install playwright
-npx playwright install chromium
+# Install dependencies
+pip install -r requirements.txt
+playwright install chromium
+
+# Create your files
+echo "your-api-key" > keys.txt
+echo "501234567" > numbers.txt
+
+# Run
+python wolt_creator.py
 ```
 
 ## Setup
 
-1. **Create `keys.txt`** with your Priyo Email API keys (one per line):
+1. **Create `keys.txt`** with Priyo Email API keys (one per line):
 ```
 7jkmE5NM2VS6GqJ9pzlI
-another-api-key-here
+another-api-key
 ```
 
 2. **Create `numbers.txt`** with Ukrainian phone numbers WITHOUT +380 prefix (one per line):
@@ -35,44 +45,54 @@ another-api-key-here
 ## Usage
 
 ```bash
-node wolt_temp_mail.js
+python wolt_creator.py
 ```
 
 ## How It Works
 
-1. Gets a random email from Priyo Email API
+1. Gets random email from Priyo Email API
 2. Opens Wolt.com and clicks "Sign up"
-3. Enters the email and waits for verification email
-4. Fetches verification link from email API
+3. Enters email and waits for verification email
+4. Fetches verification link from email API (auto-retries)
 5. Opens verification link and completes registration:
    - Country: Hungary
-   - Random first name (9 characters)
-   - Random last name (10 characters)
+   - Random first name (9 chars)
+   - Random last name (10 chars)
    - Phone country: Ukraine (+380)
    - Phone number from numbers.txt
 6. Sends SMS verification code
-7. Clicks "I didn't get a code" and "Resend code by SMS" 4 times
-8. Saves account details to `wolt_accounts.txt`
-9. Moves to next number
+7. Resends SMS 4 times
+8. Saves account to `wolt_accounts.txt`
+9. Moves to next number (errors don't stop other accounts)
 
 ## Configuration
 
-You can adjust concurrent workers in the script:
+Edit these variables in `wolt_creator.py`:
 
-```javascript
-const maxConcurrentWorkers = 3; // Change this number
+```python
+MAX_WORKERS = 3              # Concurrent workers
+MAX_EMAIL_ATTEMPTS = 15      # Email fetch retries
+SMS_RESEND_COUNT = 4         # SMS resend count
 ```
 
 ## Output
 
-Account details are saved to `wolt_accounts.txt` in format:
+Account details saved to `wolt_accounts.txt`:
 ```
-Email: example@priyomail.top | Password: abc123 | Name: Firstname Lastname | Phone: +380501234567
+Email: example@priyomail.top | Password: abc123 | Name: Firstname Lastname | Phone: +380501234567 | Time: 45.2s
 ```
+
+## Error Handling
+
+- ✅ Timeouts handled gracefully
+- ✅ Failed accounts logged but don't stop script
+- ✅ Progress counter shows success/fail stats
+- ✅ Auto-retries for email fetching
+- ✅ Browser closes even on errors
 
 ## Notes
 
-- The script uses visible browser windows (headless: false)
-- Each account creation takes approximately 1-2 minutes
-- API keys are rotated among phone numbers
-- Ukrainian phone numbers should be 9 digits without country code
+- Uses visible browsers for monitoring (set `headless=True` for background)
+- Average time: 45-60 seconds per account
+- API keys rotated automatically
+- Phone numbers must be 9 digits (no +380 prefix)

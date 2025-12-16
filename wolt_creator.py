@@ -1,0 +1,275 @@
+import asyncio
+import random
+import string
+import re
+import aiohttp
+from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeout
+from datetime import datetime
+import sys
+
+# Configuration
+MAX_WORKERS = 3
+MAX_EMAIL_ATTEMPTS = 15
+SMS_RESEND_COUNT = 4
+
+def random_name(length):
+    """Generate random name"""
+    letters = string.ascii_lowercase
+    name = ''.join(random.choice(letters) for _ in range(length))
+    return name.capitalize()
+
+def clean_link(html_content):
+    """Extract and clean verification link from email"""
+    match = re.search(r'href="(https://wolt\.com/me/magic_login[^"]+)"', html_content)
+    if not match:
+        return None
+    return match.group(1).replace('&amp;', '&')
+
+async def get_temp_email(api_key, session):
+    """Get temp email from API"""
+    try:
+        async with session.get(f'https://free.priyo.email/api/random-email/{api_key}', timeout=10) as resp:
+            text = await resp.text()
+            match = re.search(r'"email":"([^"]+)","password":"([^"]+)"', text)
+            if match:
+                return match.group(1), match.group(2)
+    except Exception as e:
+        print(f"❌ Error getting email: {e}")
+    return None, None
+
+async def get_verification_link(email, api_key, session, max_attempts=MAX_EMAIL_ATTEMPTS):
+    """Poll API for verification email"""
+    for attempt in range(max_attempts):
+        try:
+            await asyncio.sleep(3)
+            async with session.get(f'https://free.priyo.email/api/messages/{email}/{api_key}', timeout=10) as resp:
+                messages = await resp.json()
+
+                if messages and isinstance(messages, list):
+                    for msg in messages:
+                        if msg.get('sender_email') == 'info@wolt.com' and 'Welcome to Wolt' in msg.get('subject', ''):
+                            link = clean_link(msg.get('content', ''))
+                            if link:
+                                return link
+        except Exception as e:
+            if attempt % 5 == 0:
+                print(f"  ⏳ Checking inbox... attempt {attempt + 1}/{max_attempts}")
+            continue
+    return None
+
+async def create_account(worker_num, api_key, phone_number):
+    """Create single Wolt account"""
+    browser = None
+    start_time = datetime.now()
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            # Step 1: Get temp email
+            print(f"\n[Worker {worker_num}] 📧 Getting temp email...")
+            email, password = await get_temp_email(api_key, session)
+
+            if not email:
+                print(f"[Worker {worker_num}] ❌ Failed to get email")
+                return False
+
+            print(f"[Worker {worker_num}] ✅ Email: {email}")
+
+            # Step 2: Start browser
+            playwright = await async_playwright().start()
+            browser = await playwright.chromium.launch(
+                headless=False,
+                args=['--disable-blink-features=AutomationControlled']
+            )
+
+            context = await browser.new_context(
+                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            )
+            page = await context.new_page()
+            page.set_default_timeout(15000)  # 15 seconds timeout
+
+            # Step 3: Go to Wolt
+            print(f"[Worker {worker_num}] 🌐 Opening Wolt...")
+            await page.goto('https://wolt.com/', wait_until='domcontentloaded')
+            await asyncio.sleep(2)
+
+            # Step 4: Click Sign up
+            print(f"[Worker {worker_num}] 🖱️  Clicking Sign up...")
+            await page.click('button[data-test-id="UserStatus.Signup"]', timeout=10000)
+            await asyncio.sleep(2)
+
+            # Step 5: Enter email in iframe
+            print(f"[Worker {worker_num}] 📝 Entering email...")
+            frame = page.frame_locator('iframe').first
+            await frame.locator('input[data-test-id="MethodSelect.EmailInput"]').fill(email)
+            await asyncio.sleep(1)
+
+            # Step 6: Click Continue
+            await frame.locator('button[data-test-id="StepMethodSelect.NextButton"]').click()
+
+            # Step 7: Wait for confirmation
+            print(f"[Worker {worker_num}] ⏳ Waiting for email confirmation...")
+            await frame.locator('h2:has-text("Great, check your inbox!")').wait_for(timeout=20000)
+            print(f"[Worker {worker_num}] ✅ Email sent!")
+
+            # Step 8: Get verification link
+            print(f"[Worker {worker_num}] 📬 Fetching verification link...")
+            verification_link = await get_verification_link(email, api_key, session)
+
+            if not verification_link:
+                print(f"[Worker {worker_num}] ❌ No verification email received")
+                return False
+
+            print(f"[Worker {worker_num}] ✅ Got verification link")
+
+            # Step 9: Open verification link
+            print(f"[Worker {worker_num}] 🔗 Opening verification link...")
+            await page.goto(verification_link, wait_until='domcontentloaded')
+            await asyncio.sleep(2)
+
+            # Step 10: Fill registration form
+            frame2 = page.frame_locator('iframe').first
+
+            # Select Hungary
+            print(f"[Worker {worker_num}] 🇭🇺 Selecting Hungary...")
+            await frame2.locator('input#CreateAccount\\.Country').click()
+            await asyncio.sleep(1)
+            await frame2.locator('li:has-text("Hungary")').first.click()
+            await asyncio.sleep(1)
+
+            # Generate names
+            first_name = random_name(9)
+            last_name = random_name(10)
+
+            # Enter names
+            print(f"[Worker {worker_num}] 👤 Entering name: {first_name} {last_name}")
+            await frame2.locator('input[data-test-id="CreateAccount.FirstName"]').fill(first_name)
+            await asyncio.sleep(0.5)
+            await frame2.locator('input[data-test-id="CreateAccount.LastName"]').fill(last_name)
+            await asyncio.sleep(0.5)
+
+            # Select Ukraine phone code
+            print(f"[Worker {worker_num}] 🇺🇦 Selecting Ukraine (+380)...")
+            await frame2.locator('input#CreateAccount\\.PhoneNumberCountryCode').click()
+            await asyncio.sleep(1)
+            await frame2.locator('li:has-text("Ukraine")').first.click()
+            await asyncio.sleep(1)
+
+            # Enter phone number
+            print(f"[Worker {worker_num}] 📱 Entering phone: +380{phone_number}")
+            await frame2.locator('input[data-test-id="CreateAccount.PhoneNumber"]').fill(phone_number)
+            await asyncio.sleep(1)
+
+            # Click Next
+            await frame2.locator('button[data-test-id="CreateAccount.Continue"]').click()
+            await asyncio.sleep(3)
+
+            # Click Send SMS
+            print(f"[Worker {worker_num}] 📲 Sending SMS verification...")
+            await frame2.locator('button[data-test-id="VerifyPhoneNumberMethodSelect.SmsButton"]').click()
+            await asyncio.sleep(3)
+
+            # Resend SMS 4 times
+            for i in range(SMS_RESEND_COUNT):
+                print(f"[Worker {worker_num}] 🔄 Resend {i + 1}/{SMS_RESEND_COUNT}...")
+
+                # Click "I didn't get a code"
+                await frame2.locator('button[data-test-id="VerifyCode.CodeNotReceived"]').click()
+                await asyncio.sleep(2)
+
+                # Click "Resend code by SMS"
+                await frame2.locator('button[data-test-id="NoCodeReceived.SmsButton"]').click()
+                await asyncio.sleep(3)
+
+            # Save account info
+            elapsed = (datetime.now() - start_time).total_seconds()
+            account_info = f"Email: {email} | Password: {password} | Name: {first_name} {last_name} | Phone: +380{phone_number} | Time: {elapsed:.1f}s\n"
+
+            with open('wolt_accounts.txt', 'a', encoding='utf-8') as f:
+                f.write(account_info)
+
+            print(f"[Worker {worker_num}] ✅ SUCCESS in {elapsed:.1f}s!")
+            print(f"[Worker {worker_num}] 💾 Saved: {email} | +380{phone_number}")
+
+            return True
+
+    except PlaywrightTimeout as e:
+        print(f"[Worker {worker_num}] ⏰ Timeout error: {str(e)[:100]}")
+        return False
+    except Exception as e:
+        print(f"[Worker {worker_num}] ❌ Error: {str(e)[:150]}")
+        return False
+    finally:
+        if browser:
+            try:
+                await browser.close()
+            except:
+                pass
+
+async def main():
+    """Main function"""
+    try:
+        # Read API keys
+        with open('keys.txt', 'r', encoding='utf-8') as f:
+            keys = [line.strip() for line in f if line.strip()]
+
+        if not keys:
+            print("❌ No API keys found in keys.txt")
+            return
+
+        # Read phone numbers
+        with open('numbers.txt', 'r', encoding='utf-8') as f:
+            numbers = [line.strip() for line in f if line.strip()]
+
+        if not numbers:
+            print("❌ No phone numbers found in numbers.txt")
+            return
+
+        print(f"🚀 Starting with {len(keys)} API keys and {len(numbers)} phone numbers")
+        print(f"⚙️  Workers: {MAX_WORKERS} | SMS Resends: {SMS_RESEND_COUNT}\n")
+
+        success_count = 0
+        fail_count = 0
+
+        # Process in batches
+        for i in range(0, len(numbers), MAX_WORKERS):
+            batch = []
+
+            for j in range(MAX_WORKERS):
+                index = i + j
+                if index >= len(numbers):
+                    break
+
+                api_key = keys[index % len(keys)]
+                phone = numbers[index]
+                worker_num = index + 1
+
+                batch.append(create_account(worker_num, api_key, phone))
+
+            # Wait for batch to complete
+            results = await asyncio.gather(*batch, return_exceptions=True)
+
+            # Count results
+            for result in results:
+                if result is True:
+                    success_count += 1
+                else:
+                    fail_count += 1
+
+            print(f"\n{'='*60}")
+            print(f"📊 Progress: {i + len(batch)}/{len(numbers)} | ✅ Success: {success_count} | ❌ Failed: {fail_count}")
+            print(f"{'='*60}\n")
+
+            # Small delay between batches
+            if i + MAX_WORKERS < len(numbers):
+                await asyncio.sleep(2)
+
+        print(f"\n🎉 DONE! Total: {len(numbers)} | ✅ Success: {success_count} | ❌ Failed: {fail_count}")
+
+    except FileNotFoundError as e:
+        print(f"❌ File not found: {e.filename}")
+        print("💡 Create keys.txt and numbers.txt files")
+    except Exception as e:
+        print(f"❌ Fatal error: {e}")
+
+if __name__ == '__main__':
+    asyncio.run(main())
