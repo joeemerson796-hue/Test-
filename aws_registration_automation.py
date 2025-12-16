@@ -14,14 +14,30 @@ from loguru import logger
 from threading import Lock
 from tqdm import tqdm
 
-# Global lock for thread-safe file operations
-file_lock = Lock()
+# ============================================================================
+# CONFIGURATION - Change these settings as needed
+# ============================================================================
 
 # YesCaptcha API configuration
 YESCAPTCHA_CLIENT_KEY = "8d381f04402598ed227557a6acb91a6da1a909c375946"
 
+# Country/Region Configuration (for phone number and address)
+# You can change these values to use a different country
+COUNTRY_NAME = "Mozambique"           # Country name as it appears in dropdown
+PHONE_CODE = "+258"                    # International phone code
+PHONE_NUMBER = "573596-0999"          # Phone number (without country code)
+ADDRESS_LINE = "Avenue de Bouillon 38" # Street address
+CITY = "Maputo"                        # City name
+POSTAL_CODE = "1100"                   # Postal/ZIP code
+
+# ============================================================================
+
+# Global lock for thread-safe file operations
+file_lock = Lock()
+
 # Global session for connection reuse
 session = requests.Session()
+
 
 
 def clear_console():
@@ -368,7 +384,7 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
             account_name_input = page.locator('input#accountName')
             account_name_input.wait_for(state="visible", timeout=10000)
             account_name_input.fill(account_name)
-            time.sleep(1)
+            time.sleep(0.5)
 
             # Step 4: Click "Verify email address" button
             logger.info(f"{runner_id}: Clicking Verify email address button...")
@@ -449,7 +465,7 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
                         logger.info(f"{runner_id}: Clicking Submit button...")
                         submit_button = iframe.locator('button[type="submit"], button:has-text("Submit")').first
                         submit_button.click()
-                        time.sleep(1)
+                        time.sleep(2)  # WAIT TIME AFTER CAPTCHA SUBMIT - Change this if needed (in seconds)
 
                         # Check for error message
                         try:
@@ -555,7 +571,7 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
             otp_input = page.locator('input#otp')
             otp_input.wait_for(state="visible", timeout=15000)
             otp_input.fill(verification_code)
-            time.sleep(1)
+            time.sleep(0.5)
 
             # Click Verify button (after OTP) with error alert handling
             logger.info(f"{runner_id}: Clicking Verify button after OTP...")
@@ -580,12 +596,12 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
             password_input = page.locator('input#password')
             password_input.wait_for(state="visible", timeout=15000)
             password_input.fill(aws_password)
-            time.sleep(1)
+            time.sleep(0.5)
 
             # Re-enter password
             re_password_input = page.locator('input#rePassword')
             re_password_input.fill(aws_password)
-            time.sleep(1)
+            time.sleep(0.5)
 
             # Click "Continue (step 1 of 5)" button
             logger.info(f"{runner_id}: Clicking Continue (step 1 of 5)...")
@@ -611,7 +627,7 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
             personal_radio = page.locator('input[name="accountType"][value="Personal"]')
             personal_radio.wait_for(state="visible", timeout=15000)
             personal_radio.click()
-            time.sleep(1)
+            time.sleep(0.5)
 
             # Step 12: Select phone code (Mozambique +258)
             logger.info(f"{runner_id}: Selecting phone code +258 (Mozambique)...")
@@ -636,39 +652,39 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
             full_name_input = page.locator('input#address\\.fullName')
             full_name_input.wait_for(state="visible", timeout=10000)
             full_name_input.fill(full_name)
-            time.sleep(1)
+            time.sleep(0.5)
 
-            # Step 14: Enter phone number
-            logger.info(f"{runner_id}: Entering phone number: 573596-0999...")
+            # Step 14: Enter phone number (using configuration)
+            logger.info(f"{runner_id}: Entering phone number: {PHONE_NUMBER}...")
             phone_input = page.locator('input#address\\.phoneNumber')
-            phone_input.fill("573596-0999")
-            time.sleep(1)
+            phone_input.fill(PHONE_NUMBER)
+            time.sleep(0.5)
 
-            # Step 15: Select country (Mozambique)
-            logger.info(f"{runner_id}: Selecting country Mozambique...")
+            # Step 15: Select country (using configuration)
+            logger.info(f"{runner_id}: Selecting country {COUNTRY_NAME}...")
             try:
                 # Click country dropdown button
                 country_button = page.locator('button#address\\.country')
                 country_button.wait_for(state="visible", timeout=10000)
                 logger.info(f"{runner_id}: Clicking country dropdown...")
                 country_button.click()
-                time.sleep(0.8)
+                time.sleep(0.6)
 
-                # Type "Mozambique" directly in the search input
-                logger.info(f"{runner_id}: Typing Mozambique in search...")
+                # Type country name directly in the search input
+                logger.info(f"{runner_id}: Typing {COUNTRY_NAME} in search...")
                 country_search = page.locator('input[role="combobox"]').last  # Use .last to get the country search
                 country_search.wait_for(state="visible", timeout=10000)
-                time.sleep(0.5)
-                country_search.fill("Mozambique")
-                time.sleep(0.8)
+                time.sleep(0.3)
+                country_search.fill(COUNTRY_NAME)
+                time.sleep(0.6)
 
-                # Select Mozambique from the dropdown options
-                logger.info(f"{runner_id}: Selecting Mozambique from list...")
-                mozambique_option = page.locator('[role="option"]:has-text("Mozambique")').first
-                mozambique_option.wait_for(state="visible", timeout=10000)
-                mozambique_option.click()
-                time.sleep(1)
-                logger.success(f"{runner_id}: Country set to Mozambique")
+                # Select country from the dropdown options
+                logger.info(f"{runner_id}: Selecting {COUNTRY_NAME} from list...")
+                country_option = page.locator(f'[role="option"]:has-text("{COUNTRY_NAME}")').first
+                country_option.wait_for(state="visible", timeout=10000)
+                country_option.click()
+                time.sleep(0.5)
+                logger.success(f"{runner_id}: Country set to {COUNTRY_NAME}")
             except Exception as e:
                 logger.error(f"{runner_id}: Error selecting country: {e}")
                 # Take a screenshot for debugging
@@ -679,32 +695,32 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
                     pass
                 raise  # Re-raise to stop execution
 
-            # Step 16: Fill address line 1
+            # Step 16: Fill address line 1 (using configuration)
             logger.info(f"{runner_id}: Entering address...")
             address_input = page.locator('input#address\\.addressLine1')
-            address_input.fill("Avenue de Bouillon 38")
-            time.sleep(1)
+            address_input.fill(ADDRESS_LINE)
+            time.sleep(0.5)
 
-            # Step 17: Fill city
+            # Step 17: Fill city (using configuration)
             city_input = page.locator('input#address\\.city')
-            city_input.fill("Libramont-Chevigny")
-            time.sleep(1)
+            city_input.fill(CITY)
+            time.sleep(0.5)
 
             # Step 18: Fill state
             state_input = page.locator('input#address\\.state')
-            state_input.fill("Luxembourg")
-            time.sleep(1)
+            state_input.fill(CITY)  # Using city as state for simplicity
+            time.sleep(0.5)
 
-            # Step 19: Fill postal code
+            # Step 19: Fill postal code (using configuration)
             postal_input = page.locator('input#address\\.postalCode')
-            postal_input.fill("6800")
-            time.sleep(1)
+            postal_input.fill(POSTAL_CODE)
+            time.sleep(0.5)
 
             # Step 20: Check AWS Customer Agreement checkbox
             logger.info(f"{runner_id}: Checking AWS Customer Agreement...")
             agreement_checkbox = page.locator('input#agreement')
             agreement_checkbox.check()
-            time.sleep(1)
+            time.sleep(0.5)
 
             # Step 21: Click "Agree and Continue (step 2 of 5)"
             logger.info(f"{runner_id}: Clicking Agree and Continue (step 2 of 5)...")
@@ -712,16 +728,16 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
             agree_button.click()
             time.sleep(2)
 
-            # Save account after step 2 completion
+            # Save account after step 2 completion (with full hotmail details)
             logger.success(f"{runner_id}: Account created! Saving to created.txt...")
-            savecreated('created', f"{email_address}:{aws_password}")
+            savecreated('created', f"{email_address}:{hotmail_password}:{refresh_token}:{client_id}:{aws_password}")
 
             # Step 22: Fill card number
             logger.info(f"{runner_id}: Entering card number: {card_number}...")
             card_input = page.locator('input#cardNumber')
             card_input.wait_for(state="visible", timeout=15000)
             card_input.fill(card_number)
-            time.sleep(1)
+            time.sleep(0.5)
 
             # Step 23: Select expiration month (random)
             logger.info(f"{runner_id}: Selecting expiration month...")
@@ -740,7 +756,7 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
             month_option = page.locator('[role="option"]:has-text("May")').first
             month_option.wait_for(state="visible", timeout=10000)
             month_option.click()
-            time.sleep(1)
+            time.sleep(0.5)
 
             # Step 24: Select expiration year (2027)
             logger.info(f"{runner_id}: Selecting expiration year 2027...")
@@ -758,21 +774,21 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
             year_option = page.locator('[role="option"]:has-text("2027")').first
             year_option.wait_for(state="visible", timeout=10000)
             year_option.click()
-            time.sleep(1)
+            time.sleep(0.5)
 
             # Step 25: Enter CVV (random 3 digits)
             cvv = generate_random_numbers(3)
             logger.info(f"{runner_id}: Entering CVV: {cvv}...")
             cvv_input = page.locator('input#sor\\.cvv')
             cvv_input.fill(cvv)
-            time.sleep(1)
+            time.sleep(0.5)
 
             # Step 26: Enter account holder name (random 12 characters)
             holder_name = generate_random_string(12)
             logger.info(f"{runner_id}: Entering account holder name: {holder_name}...")
             holder_input = page.locator('input#accountHolderName')
             holder_input.fill(holder_name)
-            time.sleep(1)
+            time.sleep(0.5)
 
             # Step 27: Click "Verify and continue (step 3 of 5)"
             logger.info(f"{runner_id}: Clicking Verify and continue (step 3 of 5)...")
@@ -862,7 +878,7 @@ def aws_registration_automation(email_address, hotmail_password, refresh_token, 
                         logger.info(f"{runner_id}: Clicking Submit...")
                         submit_captcha_button = iframe2.locator('button[type="submit"], button:has-text("Submit")').first
                         submit_captcha_button.click()
-                        time.sleep(1)
+                        time.sleep(2)  # WAIT TIME AFTER CAPTCHA SUBMIT - Change this if needed (in seconds)
 
                         # Check for error message
                         try:
