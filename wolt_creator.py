@@ -210,12 +210,12 @@ async def create_account(worker_num, api_key, phone_number):
                 for i in range(SMS_RESEND_COUNT):
                     print(f"[Worker {worker_num}] 🔄 Resend {i + 1}/{SMS_RESEND_COUNT}...")
 
-                    # Click "I didn't get a code"
-                    await form_locator.locator('button[data-test-id="VerifyCode.CodeNotReceived"]').click()
+                    # Click "I didn't get a code" - use .first to avoid strict mode violation
+                    await form_locator.locator('button[data-test-id="VerifyCode.CodeNotReceived"]').first.click()
                     await asyncio.sleep(1)
 
-                    # Click "Resend code by SMS"
-                    await form_locator.locator('button[data-test-id="NoCodeReceived.SmsButton"]').click()
+                    # Click "Resend code by SMS" - use .first to avoid strict mode violation
+                    await form_locator.locator('button[data-test-id="NoCodeReceived.SmsButton"]').first.click()
                     await asyncio.sleep(1.5)
 
                     # Check for rate limit error
