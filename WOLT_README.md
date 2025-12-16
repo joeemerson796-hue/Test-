@@ -109,6 +109,7 @@ Email: example@priyomail.top | Password: abc123 | Name: Firstname Lastname | Pho
 - ✅ Browser closes even on errors
 - ✅ Cookie consent auto-handled
 - ✅ Smart modal/iframe detection
+- ✅ Multiple fallback methods for country selection (4 methods each)
 
 ## Notes
 

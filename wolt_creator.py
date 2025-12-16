@@ -162,9 +162,45 @@ async def create_account(worker_num, api_key, phone_number):
 
                 # Select Hungary
                 print(f"[Worker {worker_num}] 🇭🇺 Selecting Hungary...")
-                await form_locator.locator('input#CreateAccount\\.Country').click()
+                country_input = form_locator.locator('input#CreateAccount\\.Country')
+                await country_input.click()
                 await asyncio.sleep(1)
-                await form_locator.locator('li:has-text("Hungary")').first.click()
+
+                # Try multiple methods to select Hungary
+                hungary_selected = False
+
+                # Method 1: Type to filter and press Enter
+                try:
+                    await country_input.press_sequentially("Hun", delay=100)
+                    await asyncio.sleep(0.5)
+                    await country_input.press("Enter")
+                    await asyncio.sleep(0.5)
+                    hungary_selected = True
+                    print(f"[Worker {worker_num}] ✅ Hungary selected (method 1)")
+                except Exception as e1:
+                    print(f"[Worker {worker_num}] ⚠️  Method 1 failed, trying method 2...")
+
+                    # Method 2: Find by ID pattern containing HUN
+                    try:
+                        hun_option = form_locator.locator('[id*="HUN"]', has_text="Hungary").first
+                        await hun_option.click(timeout=5000)
+                        await asyncio.sleep(0.5)
+                        hungary_selected = True
+                        print(f"[Worker {worker_num}] ✅ Hungary selected (method 2)")
+                    except Exception as e2:
+                        print(f"[Worker {worker_num}] ⚠️  Method 2 failed, trying method 3...")
+
+                        # Method 3: Find li with role option
+                        try:
+                            hun_option = form_locator.locator('li[role="option"]:has-text("Hungary")').first
+                            await hun_option.click(timeout=5000)
+                            await asyncio.sleep(0.5)
+                            hungary_selected = True
+                            print(f"[Worker {worker_num}] ✅ Hungary selected (method 3)")
+                        except Exception as e3:
+                            print(f"[Worker {worker_num}] ❌ All methods failed for Hungary selection")
+                            raise Exception(f"Could not select Hungary: {e1}, {e2}, {e3}")
+
                 await asyncio.sleep(1)
 
                 # Generate names
@@ -180,9 +216,53 @@ async def create_account(worker_num, api_key, phone_number):
 
                 # Select Ukraine phone code
                 print(f"[Worker {worker_num}] 🇺🇦 Selecting Ukraine (+380)...")
-                await form_locator.locator('input#CreateAccount\\.PhoneNumberCountryCode').click()
+                phone_country_input = form_locator.locator('input#CreateAccount\\.PhoneNumberCountryCode')
+                await phone_country_input.click()
                 await asyncio.sleep(1)
-                await form_locator.locator('li:has-text("Ukraine")').first.click()
+
+                # Try multiple methods to select Ukraine
+                ukraine_selected = False
+
+                # Method 1: Type to filter and press Enter
+                try:
+                    await phone_country_input.press_sequentially("Ukr", delay=100)
+                    await asyncio.sleep(0.5)
+                    await phone_country_input.press("Enter")
+                    await asyncio.sleep(0.5)
+                    ukraine_selected = True
+                    print(f"[Worker {worker_num}] ✅ Ukraine selected (method 1)")
+                except Exception as e1:
+                    print(f"[Worker {worker_num}] ⚠️  Method 1 failed, trying method 2...")
+
+                    # Method 2: Find by ID pattern containing UA or Ukraine
+                    try:
+                        ua_option = form_locator.locator('[id*="UA"]', has_text="Ukraine").first
+                        await ua_option.click(timeout=5000)
+                        await asyncio.sleep(0.5)
+                        ukraine_selected = True
+                        print(f"[Worker {worker_num}] ✅ Ukraine selected (method 2)")
+                    except Exception as e2:
+                        print(f"[Worker {worker_num}] ⚠️  Method 2 failed, trying method 3...")
+
+                        # Method 3: Find li with role option
+                        try:
+                            ua_option = form_locator.locator('li[role="option"]:has-text("Ukraine")').first
+                            await ua_option.click(timeout=5000)
+                            await asyncio.sleep(0.5)
+                            ukraine_selected = True
+                            print(f"[Worker {worker_num}] ✅ Ukraine selected (method 3)")
+                        except Exception as e3:
+                            # Method 4: Find by +380
+                            try:
+                                ua_option = form_locator.locator('li[role="option"]:has-text("+380")').first
+                                await ua_option.click(timeout=5000)
+                                await asyncio.sleep(0.5)
+                                ukraine_selected = True
+                                print(f"[Worker {worker_num}] ✅ Ukraine selected (method 4)")
+                            except Exception as e4:
+                                print(f"[Worker {worker_num}] ❌ All methods failed for Ukraine selection")
+                                raise Exception(f"Could not select Ukraine: {e1}, {e2}, {e3}, {e4}")
+
                 await asyncio.sleep(1)
 
                 # Enter phone number
