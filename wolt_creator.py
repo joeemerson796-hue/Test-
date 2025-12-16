@@ -6,7 +6,6 @@ import aiohttp
 from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeout
 from datetime import datetime
 import sys
-import argparse
 
 # Configuration
 MAX_EMAIL_ATTEMPTS = 15
@@ -90,17 +89,19 @@ async def create_account(worker_num, api_key, phone_number):
             # Step 3: Go to Wolt
             print(f"[Worker {worker_num}] 🌐 Opening Wolt...")
             await page.goto('https://wolt.com/', wait_until='domcontentloaded')
-            await asyncio.sleep(2)
+            await asyncio.sleep(3)
 
-            # Step 3.5: Handle cookie consent if appears
+            # Step 3.5: Handle cookie consent (ALWAYS appears)
             try:
+                print(f"[Worker {worker_num}] 🍪 Waiting for cookie modal...")
+                # Wait for cookie modal to appear
                 cookie_button = page.locator('button[data-test-id="decline-button"]')
-                if await cookie_button.is_visible(timeout=3000):
-                    print(f"[Worker {worker_num}] 🍪 Declining cookies...")
-                    await cookie_button.click()
-                    await asyncio.sleep(1)
-            except:
-                pass  # No cookie modal
+                await cookie_button.wait_for(state='visible', timeout=10000)
+                print(f"[Worker {worker_num}] 🍪 Declining cookies...")
+                await cookie_button.click()
+                await asyncio.sleep(2)
+            except Exception as e:
+                print(f"[Worker {worker_num}] ⚠️  Cookie modal not found: {str(e)[:50]}")
 
             # Step 4: Click Sign up
             print(f"[Worker {worker_num}] 🖱️  Clicking Sign up...")
@@ -117,7 +118,8 @@ async def create_account(worker_num, api_key, phone_number):
 
             # Step 7: Wait for confirmation
             print(f"[Worker {worker_num}] ⏳ Waiting for email confirmation...")
-            await page.locator('h2:has-text("Great, check your inbox!")').wait_for(timeout=20000)
+            # Use .first to avoid strict mode violation (2 elements match)
+            await page.locator('h2:has-text("Great, check your inbox!")').first.wait_for(timeout=20000)
             print(f"[Worker {worker_num}] ✅ Email sent!")
 
             # Step 8: Get verification link
@@ -305,35 +307,41 @@ async def main(workers):
         print(f"❌ Fatal error: {e}")
 
 if __name__ == '__main__':
-    # Parse command line arguments
-    parser = argparse.ArgumentParser(
-        description='Wolt Account Creator - Fast async automation',
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog='''
-Examples:
-  python wolt_creator.py              # Use default 3 workers
-  python wolt_creator.py --workers 5  # Use 5 workers
-  python wolt_creator.py -w 1         # Use 1 worker (sequential)
-        '''
-    )
-    parser.add_argument(
-        '-w', '--workers',
-        type=int,
-        default=3,
-        help='Number of concurrent workers (default: 3)'
-    )
-
-    args = parser.parse_args()
-
-    # Validate workers count
-    if args.workers < 1:
-        print("❌ Workers must be at least 1")
-        sys.exit(1)
-    elif args.workers > 10:
-        print("⚠️  Warning: Using more than 10 workers may cause issues")
-
     print(f"{'='*60}")
     print("🍕 Wolt Account Creator")
     print(f"{'='*60}\n")
 
-    asyncio.run(main(args.workers))
+    # Ask user for number of workers
+    while True:
+        try:
+            workers_input = input("How many workers do you need? (default 3): ").strip()
+
+            # Use default if empty
+            if workers_input == "":
+                workers = 3
+                break
+
+            workers = int(workers_input)
+
+            if workers < 1:
+                print("❌ Workers must be at least 1. Try again.")
+                continue
+            elif workers > 10:
+                confirm = input(f"⚠️  {workers} workers may cause issues. Continue? (y/n): ").lower()
+                if confirm == 'y' or confirm == 'yes':
+                    break
+                else:
+                    continue
+            else:
+                break
+
+        except ValueError:
+            print("❌ Please enter a valid number. Try again.")
+            continue
+        except KeyboardInterrupt:
+            print("\n\n❌ Cancelled by user")
+            sys.exit(0)
+
+    print(f"\n✅ Using {workers} worker(s)\n")
+
+    asyncio.run(main(workers))

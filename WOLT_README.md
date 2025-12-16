@@ -6,8 +6,8 @@ Fast automated script to create Wolt accounts using Priyo temp mail API and Play
 
 - ⚡ **Fast async/await** implementation with parallel workers
 - 🛡️ **Robust error handling** - continues on failures
-- 🎛️ **Configurable workers** - choose via command line
-- 🍪 **Auto-handles cookies** - declines consent automatically
+- 💬 **Interactive worker selection** - prompts you at runtime
+- 🍪 **Auto-handles cookies** - waits and declines consent modal
 - 🔧 **Smart iframe detection** - works with modals or iframes
 - 📧 Uses free.priyo.email API for temporary emails
 - 🤖 Automated account creation on Wolt.com
@@ -26,11 +26,11 @@ playwright install chromium
 echo "your-api-key" > keys.txt
 echo "501234567" > numbers.txt
 
-# Run with default 3 workers
+# Run script
 python wolt_creator.py
 
-# Or specify number of workers
-python wolt_creator.py --workers 5
+# It will ask: "How many workers do you need?"
+# Type number (or press Enter for default 3)
 ```
 
 ## Setup
@@ -51,16 +51,17 @@ another-api-key
 ## Usage
 
 ```bash
-# Default (3 workers)
 python wolt_creator.py
-
-# Custom workers
-python wolt_creator.py --workers 5
-python wolt_creator.py -w 1
-
-# Help
-python wolt_creator.py --help
 ```
+
+**Interactive Prompt:**
+```
+How many workers do you need? (default 3): 5
+```
+
+- Press Enter for default (3 workers)
+- Type a number (1-10)
+- For 10+ workers, you'll get a warning confirmation
 
 ## How It Works
 
@@ -81,10 +82,10 @@ python wolt_creator.py --help
 
 ## Configuration
 
-**Command Line:**
-```bash
-python wolt_creator.py --workers 5    # Set concurrent workers
-```
+**Runtime (Interactive):**
+- Script asks "How many workers?" when you run it
+- Default: 3 workers
+- Range: 1-10 (10+ needs confirmation)
 
 **Script Variables** (edit in `wolt_creator.py`):
 ```python
