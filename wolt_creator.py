@@ -21,6 +21,17 @@ async def get_mailtm_email(mail_page, worker_num):
 
     try:
         await mail_page.goto("https://mail.tm/en/", wait_until="domcontentloaded", timeout=30000)
+
+        # Accept cookies if present
+        try:
+            cookie_button = mail_page.locator('button[title="Accept"]').first
+            await cookie_button.wait_for(state='visible', timeout=5000)
+            await cookie_button.click()
+            print(f"[Worker {worker_num}] 🍪 Accepted mail.tm cookies")
+            await asyncio.sleep(1)
+        except:
+            pass
+
         print(f"[Worker {worker_num}] ⏳ Waiting for email to appear...")
         await asyncio.sleep(2)
 
@@ -84,87 +95,94 @@ async def wait_for_wolt_verification_email(mail_page, worker_num):
 
     max_wait = 90
     start_time = asyncio.get_event_loop().time()
-    first_check = True
+    check_interval = 3  # Check every 3 seconds
 
     while asyncio.get_event_loop().time() - start_time < max_wait:
         try:
-            if not first_check:
-                await mail_page.reload(wait_until="domcontentloaded", timeout=10000)
-                await asyncio.sleep(1)
-            else:
-                first_check = False
-                await asyncio.sleep(2)
+            # Reload page to get fresh inbox
+            await mail_page.reload(wait_until="domcontentloaded", timeout=10000)
+            await asyncio.sleep(2)  # Wait for content to settle
 
             wolt_message = None
 
-            # Look for Wolt email (from info@wolt.com)
+            # Method 1: Look for messages with "wolt" or "wolt.com" text
             try:
-                spans = mail_page.locator('span.truncate')
-                count = await spans.count()
+                # Get all message items
+                message_items = mail_page.locator('li.cursor-pointer')
+                count = await message_items.count()
 
-                for i in range(count):
-                    span = spans.nth(i)
-                    text = await span.inner_text()
-                    if 'wolt.com' in text.lower() or 'wolt' in text.lower():
-                        wolt_message = span.locator('xpath=ancestor::li').first
-                        print(f"[Worker {worker_num}] ✅ Found Wolt email!")
-                        break
-            except:
-                pass
+                print(f"[Worker {worker_num}] 🔍 Found {count} messages in inbox")
 
-            # Fallback: check for any message
-            if not wolt_message:
-                try:
-                    clickable_messages = mail_page.locator('li.cursor-pointer, li[role="button"]')
-                    if await clickable_messages.count() > 0:
-                        wolt_message = clickable_messages.first
-                except:
-                    pass
+                if count > 0:
+                    # Check each message for Wolt keywords
+                    for i in range(count):
+                        try:
+                            message = message_items.nth(i)
+                            message_text = await message.inner_text()
 
+                            if 'wolt' in message_text.lower() or 'magic' in message_text.lower():
+                                wolt_message = message
+                                print(f"[Worker {worker_num}] ✅ Found Wolt message!")
+                                break
+                        except:
+                            continue
+
+                    # If no Wolt message found but messages exist, try first message
+                    if not wolt_message and count > 0:
+                        wolt_message = message_items.first
+                        print(f"[Worker {worker_num}] 📨 Using first message")
+            except Exception as e:
+                print(f"[Worker {worker_num}] ⚠️  Message search error: {str(e)[:100]}")
+
+            # If we found a message, click it and extract link
             if wolt_message:
-                print(f"[Worker {worker_num}] 🖱️  Clicking on message...")
-                await wolt_message.click()
-                await asyncio.sleep(3)
-
-                # Extract verification link
                 try:
-                    verify_link = mail_page.locator('a[href*="magic_login"]').first
-                    verify_url = await verify_link.get_attribute('href', timeout=5000)
+                    print(f"[Worker {worker_num}] 🖱️  Clicking message...")
+                    await wolt_message.click()
+                    await asyncio.sleep(3)  # Wait for message to open
 
-                    if verify_url:
-                        # Clean the URL (remove &amp;)
-                        verify_url = verify_url.replace('&amp;', '&')
-                        print(f"[Worker {worker_num}] ✅ Found verification URL!")
+                    # Method 1: Try to find link by selector
+                    try:
+                        verify_link = mail_page.locator('a[href*="magic_login"]').first
+                        await verify_link.wait_for(state='visible', timeout=5000)
+                        verify_url = await verify_link.get_attribute('href')
+
+                        if verify_url:
+                            verify_url = verify_url.replace('&amp;', '&')
+                            print(f"[Worker {worker_num}] ✅ Extracted verification link!")
+                            return verify_url
+                    except:
+                        pass
+
+                    # Method 2: Regex extraction from page content
+                    page_content = await mail_page.content()
+                    url_pattern = r'https://wolt\.com/me/magic_login[^"\s<>]+'
+                    match = re.search(url_pattern, page_content)
+
+                    if match:
+                        verify_url = match.group(0).replace('&amp;', '&')
+                        print(f"[Worker {worker_num}] ✅ Extracted link via regex!")
                         return verify_url
-                except:
-                    pass
 
-                # Fallback: regex extraction
-                page_content = await mail_page.content()
-                url_pattern = r'https://wolt\.com/me/magic_login[^"\s<>]+'
-                match = re.search(url_pattern, page_content)
-
-                if match:
-                    verify_url = match.group(0)
-                    # Clean the URL
-                    verify_url = verify_url.replace('&amp;', '&')
-                    print(f"[Worker {worker_num}] ✅ Found verification URL via regex!")
-                    return verify_url
-                else:
-                    # Go back and try again
+                    # No link found, go back and try again
+                    print(f"[Worker {worker_num}] ❌ No verification link in message, going back...")
                     try:
                         await mail_page.go_back()
                         await asyncio.sleep(2)
                     except:
                         pass
 
+                except Exception as e:
+                    print(f"[Worker {worker_num}] ⚠️  Message click error: {str(e)[:100]}")
+
         except Exception as e:
-            pass
+            print(f"[Worker {worker_num}] ⚠️  Check error: {str(e)[:100]}")
 
-        print(f"[Worker {worker_num}] ⏳ Checking inbox... ({int(asyncio.get_event_loop().time() - start_time)}s elapsed)")
-        await asyncio.sleep(5)
+        elapsed = int(asyncio.get_event_loop().time() - start_time)
+        print(f"[Worker {worker_num}] ⏳ Waiting for email... ({elapsed}s elapsed)")
+        await asyncio.sleep(check_interval)
 
-    print(f"[Worker {worker_num}] ❌ Verification email not received")
+    print(f"[Worker {worker_num}] ❌ Verification email timeout")
     return None
 
 async def worker_loop(worker_num, phone_queue):
@@ -267,26 +285,55 @@ async def create_account_with_retry(worker_num, phone_number, phone_queue):
         # Step 6: Switch back to Wolt page and open verification link
         print(f"[Worker {worker_num}] 🔗 Opening verification link...")
         await wolt_page.bring_to_front()
-        await wolt_page.goto(verification_link, wait_until='domcontentloaded')
-        await asyncio.sleep(2)
+        await wolt_page.goto(verification_link, wait_until='networkidle', timeout=30000)
 
-        # Step 7: Find form (iframe or page)
-        frames = wolt_page.frames
+        # Wait for page to fully load
+        print(f"[Worker {worker_num}] ⏳ Waiting for form to load...")
+        await asyncio.sleep(3)
+
+        # Step 7: Find form (iframe or page) with proper waiting
         form_locator = None
+        max_form_wait = 15  # Wait up to 15 seconds for form to appear
+        form_found = False
 
-        for frame in frames:
+        for attempt in range(max_form_wait):
+            frames = wolt_page.frames
+
+            # Check all iframes for the form
+            for frame in frames:
+                try:
+                    country_input = frame.locator('input#CreateAccount\\.Country')
+                    if await country_input.is_visible(timeout=1000):
+                        print(f"[Worker {worker_num}] 📋 Found form in iframe (attempt {attempt + 1})")
+                        form_locator = frame
+                        form_found = True
+                        break
+                except:
+                    continue
+
+            if form_found:
+                break
+
+            # Check main page for the form
             try:
-                country_input = frame.locator('input#CreateAccount\\.Country')
-                if await country_input.count() > 0:
-                    print(f"[Worker {worker_num}] 📋 Found form in iframe")
-                    form_locator = frame
+                country_input = wolt_page.locator('input#CreateAccount\\.Country')
+                if await country_input.is_visible(timeout=1000):
+                    print(f"[Worker {worker_num}] 📋 Found form on main page (attempt {attempt + 1})")
+                    form_locator = wolt_page
+                    form_found = True
                     break
             except:
-                continue
+                pass
+
+            if not form_found:
+                await asyncio.sleep(1)
 
         if not form_locator:
-            print(f"[Worker {worker_num}] 📋 Form is on main page")
-            form_locator = wolt_page
+            print(f"[Worker {worker_num}] ❌ Form not found after {max_form_wait} seconds")
+            return False
+
+        # Extra wait to ensure form is fully interactive
+        await asyncio.sleep(1)
 
         # Step 8: Fill form - Hungary
         print(f"[Worker {worker_num}] 🇭🇺 Selecting Hungary...")
