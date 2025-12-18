@@ -1,16 +1,20 @@
-# Wolt Account Creator (Python + Async)
+# Wolt Account Creator - Robust Queue Edition
 
-Fast automated script to create Wolt accounts using Priyo temp mail API and Playwright.
+Ultra-robust automated script to create Wolt accounts using Priyo temp mail API and Playwright with queue-based worker system.
 
 ## Features
 
 - ⚡ **Lightning fast** - optimized sleep times and lightweight code
-- 🛡️ **Robust error handling** - continues on failures
-- 🚫 **Rate limit detection** - auto-skips to next account
+- 💪 **100% Robust** - NEVER stops until all numbers processed
+- 🔄 **Queue-based workers** - all workers share one phone queue
+- 🚫 **Phone-in-use detection** - auto-skips used numbers
+- 📞 **Smart retry** - continues with next number on any error
+- 🛡️ **Comprehensive error handling** - catches everything
 - 💬 **Interactive worker selection** - prompts you at runtime
 - 🍪 **Auto-handles cookies** - waits and declines consent modal
 - 🔧 **Smart iframe detection** - works with modals or iframes
 - ⌨️ **Keyboard country selection** - fast and reliable
+- 🚫 **Rate limit detection** - auto-skips to next account
 - 📧 Uses free.priyo.email API for temporary emails
 - 🤖 Automated account creation on Wolt.com
 - 🔄 SMS verification resend (4 attempts per number)
@@ -65,8 +69,15 @@ How many workers do you need? (default 3): 5
 - Type a number (1-10)
 - For 10+ workers, you'll get a warning confirmation
 
-## How It Works
+## How It Works (Queue-Based System)
 
+**Workers operate on a shared queue:**
+- All workers pull phone numbers from one shared queue
+- If a number fails, worker immediately tries next number
+- Workers keep running until queue is empty
+- No number is wasted or skipped!
+
+**For each phone number:**
 1. Gets random email from Priyo Email API
 2. Opens Wolt.com and clicks "Sign up"
 3. Enters email and waits for verification email
@@ -76,11 +87,15 @@ How many workers do you need? (default 3): 5
    - Random first name (9 chars)
    - Random last name (10 chars)
    - Phone country: Ukraine (+380)
-   - Phone number from numbers.txt
-6. Sends SMS verification code
-7. Resends SMS 4 times
-8. Saves account to `wolt_accounts.txt`
-9. Moves to next number (errors don't stop other accounts)
+   - Phone number from queue
+6. **If "phone already in use" error:**
+   - Clicks back button
+   - Closes browser
+   - Gets next number from queue and retries
+7. Sends SMS verification code
+8. Resends SMS 4 times (stops if rate limited)
+9. Saves account to `wolt_accounts.txt`
+10. Gets next number from queue and repeats
 
 ## Configuration
 
@@ -102,17 +117,25 @@ Account details saved to `wolt_accounts.txt`:
 Email: example@priyomail.top | Password: abc123 | Name: Firstname Lastname | Phone: +380501234567 | Time: 45.2s
 ```
 
-## Error Handling
+## Error Handling (100% Robust)
 
-- ✅ Timeouts handled gracefully
-- ✅ Failed accounts logged but don't stop script
-- ✅ Progress counter shows success/fail stats
-- ✅ Auto-retries for email fetching (15 attempts)
-- ✅ Browser closes even on errors
-- ✅ Cookie consent auto-handled
-- ✅ Smart modal/iframe detection
-- ✅ Rate limit detection - skips to next account automatically
-- ✅ Optimized country selection with keyboard typing
+- ✅ **Queue system** - workers never stop until queue is empty
+- ✅ **Phone already in use** - auto-detected, clicks back, tries next number
+- ✅ **Rate limit detection** - skips to next account automatically
+- ✅ **Email fetch failures** - skips number and tries next
+- ✅ **Browser crashes** - browser always closes, next number processed
+- ✅ **Timeouts handled** - continues with next number
+- ✅ **All errors caught** - comprehensive try/except blocks everywhere
+- ✅ **Progress tracking** - shows success/fail stats per worker
+- ✅ **Cookie consent** - auto-handled
+- ✅ **Smart modal/iframe detection** - works with any layout
+- ✅ **Playwright instance cleanup** - no memory leaks
+
+**Script GUARANTEES:**
+- Never crashes completely
+- Processes every number in numbers.txt
+- Shows final stats at the end
+- Workers keep going until queue is empty
 
 ## Notes
 
