@@ -22,14 +22,45 @@ async def get_mailtm_email(mail_page, worker_num):
     try:
         await mail_page.goto("https://mail.tm/en/", wait_until="domcontentloaded", timeout=30000)
 
-        # Accept cookies if present
+        # Accept cookies if present (check both page and iframes)
         try:
-            cookie_button = mail_page.locator('button[title="Accept"]').first
-            await cookie_button.wait_for(state='visible', timeout=5000)
-            await cookie_button.click()
-            print(f"[Worker {worker_num}] 🍪 Accepted mail.tm cookies")
-            await asyncio.sleep(1)
-        except:
+            print(f"[Worker {worker_num}] 🍪 Looking for cookie consent...")
+            cookie_clicked = False
+
+            # Wait a bit for cookie modal to load
+            await asyncio.sleep(2)
+
+            # First try main page
+            try:
+                cookie_button = mail_page.locator('button[title="Accept"], button[aria-label="Accept"]').first
+                if await cookie_button.is_visible(timeout=2000):
+                    await cookie_button.click()
+                    print(f"[Worker {worker_num}] ✅ Accepted cookies on main page")
+                    cookie_clicked = True
+                    await asyncio.sleep(1)
+            except:
+                pass
+
+            # If not found on main page, check all iframes
+            if not cookie_clicked:
+                frames = mail_page.frames
+                for frame in frames:
+                    try:
+                        cookie_button = frame.locator('button[title="Accept"], button[aria-label="Accept"], button.sp_choice_type_11').first
+                        if await cookie_button.is_visible(timeout=2000):
+                            await cookie_button.click()
+                            print(f"[Worker {worker_num}] ✅ Accepted cookies in iframe")
+                            cookie_clicked = True
+                            await asyncio.sleep(1)
+                            break
+                    except:
+                        continue
+
+            if not cookie_clicked:
+                print(f"[Worker {worker_num}] ℹ️  No cookie consent found")
+
+        except Exception as e:
+            print(f"[Worker {worker_num}] ⚠️  Cookie handling: {str(e)[:80]}")
             pass
 
         print(f"[Worker {worker_num}] ⏳ Waiting for email to appear...")
