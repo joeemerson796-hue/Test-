@@ -15,6 +15,41 @@ def random_name(length):
     name = ''.join(random.choice(letters) for _ in range(length))
     return name.capitalize()
 
+async def check_and_accept_cookies_mailtm(mail_page, worker_num):
+    """Check and accept cookies on mail.tm (checks both page and iframes)"""
+    try:
+        cookie_clicked = False
+
+        # First try main page
+        try:
+            cookie_button = mail_page.locator('button[title="Accept"], button[aria-label="Accept"]').first
+            if await cookie_button.is_visible(timeout=2000):
+                await cookie_button.click()
+                print(f"[Worker {worker_num}] ✅ Accepted cookies on main page")
+                cookie_clicked = True
+                await asyncio.sleep(1)
+                return True
+        except:
+            pass
+
+        # If not found on main page, check all iframes
+        if not cookie_clicked:
+            frames = mail_page.frames
+            for frame in frames:
+                try:
+                    cookie_button = frame.locator('button[title="Accept"], button[aria-label="Accept"], button.sp_choice_type_11').first
+                    if await cookie_button.is_visible(timeout=2000):
+                        await cookie_button.click()
+                        print(f"[Worker {worker_num}] ✅ Accepted cookies in iframe")
+                        await asyncio.sleep(1)
+                        return True
+                except:
+                    continue
+
+        return False
+    except:
+        return False
+
 async def get_mailtm_email(mail_page, worker_num):
     """Get temporary email from mail.tm website"""
     print(f"[Worker {worker_num}] 📧 Opening mail.tm to get temporary email...")
@@ -23,45 +58,12 @@ async def get_mailtm_email(mail_page, worker_num):
         await mail_page.goto("https://mail.tm/en/", wait_until="domcontentloaded", timeout=30000)
 
         # Accept cookies if present (check both page and iframes)
-        try:
-            print(f"[Worker {worker_num}] 🍪 Looking for cookie consent...")
-            cookie_clicked = False
+        print(f"[Worker {worker_num}] 🍪 Looking for cookie consent...")
+        await asyncio.sleep(2)  # Wait for cookie modal to load
 
-            # Wait a bit for cookie modal to load
-            await asyncio.sleep(2)
-
-            # First try main page
-            try:
-                cookie_button = mail_page.locator('button[title="Accept"], button[aria-label="Accept"]').first
-                if await cookie_button.is_visible(timeout=2000):
-                    await cookie_button.click()
-                    print(f"[Worker {worker_num}] ✅ Accepted cookies on main page")
-                    cookie_clicked = True
-                    await asyncio.sleep(1)
-            except:
-                pass
-
-            # If not found on main page, check all iframes
-            if not cookie_clicked:
-                frames = mail_page.frames
-                for frame in frames:
-                    try:
-                        cookie_button = frame.locator('button[title="Accept"], button[aria-label="Accept"], button.sp_choice_type_11').first
-                        if await cookie_button.is_visible(timeout=2000):
-                            await cookie_button.click()
-                            print(f"[Worker {worker_num}] ✅ Accepted cookies in iframe")
-                            cookie_clicked = True
-                            await asyncio.sleep(1)
-                            break
-                    except:
-                        continue
-
-            if not cookie_clicked:
-                print(f"[Worker {worker_num}] ℹ️  No cookie consent found")
-
-        except Exception as e:
-            print(f"[Worker {worker_num}] ⚠️  Cookie handling: {str(e)[:80]}")
-            pass
+        cookie_accepted = await check_and_accept_cookies_mailtm(mail_page, worker_num)
+        if not cookie_accepted:
+            print(f"[Worker {worker_num}] ℹ️  No cookie consent found")
 
         print(f"[Worker {worker_num}] ⏳ Waiting for email to appear...")
         await asyncio.sleep(2)
@@ -134,13 +136,34 @@ async def wait_for_wolt_verification_email(mail_page, worker_num):
             await mail_page.reload(wait_until="domcontentloaded", timeout=10000)
             await asyncio.sleep(2)  # Wait for content to settle
 
+            # IMPORTANT: Check for cookies EVERY time before trying to interact
+            await check_and_accept_cookies_mailtm(mail_page, worker_num)
+            await asyncio.sleep(1)
+
             wolt_message = None
 
-            # Method 1: Look for messages with "wolt" or "wolt.com" text
+            # Method 1: Look for messages - try multiple selectors
             try:
-                # Get all message items
+                # Try different selectors for message items
+                message_items = None
+                count = 0
+
+                # Selector 1: li.cursor-pointer
                 message_items = mail_page.locator('li.cursor-pointer')
                 count = await message_items.count()
+
+                # Selector 2: If not found, try flex containers (from the HTML you provided)
+                if count == 0:
+                    message_items = mail_page.locator('div.flex.items-center.px-4.py-4')
+                    count = await message_items.count()
+
+                # Selector 3: Any element containing "info@wolt.com"
+                if count == 0:
+                    message_items = mail_page.locator('text=info@wolt.com')
+                    parent_locator = message_items.locator('xpath=ancestor::li | ancestor::div[@role="button"]').first
+                    if await parent_locator.count() > 0:
+                        message_items = mail_page.locator('li, div[role="button"]')
+                        count = await message_items.count()
 
                 print(f"[Worker {worker_num}] 🔍 Found {count} messages in inbox")
 
@@ -151,7 +174,7 @@ async def wait_for_wolt_verification_email(mail_page, worker_num):
                             message = message_items.nth(i)
                             message_text = await message.inner_text()
 
-                            if 'wolt' in message_text.lower() or 'magic' in message_text.lower():
+                            if 'wolt' in message_text.lower() or 'info@wolt.com' in message_text.lower():
                                 wolt_message = message
                                 print(f"[Worker {worker_num}] ✅ Found Wolt message!")
                                 break
