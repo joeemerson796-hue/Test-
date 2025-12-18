@@ -1,6 +1,6 @@
 # Wolt Account Creator - Robust Queue Edition
 
-Ultra-robust automated script to create Wolt accounts using Priyo temp mail API and Playwright with queue-based worker system.
+Ultra-robust automated script to create Wolt accounts using mail.tm website and Playwright with queue-based worker system.
 
 ## Features
 
@@ -15,7 +15,7 @@ Ultra-robust automated script to create Wolt accounts using Priyo temp mail API 
 - 🔧 **Smart iframe detection** - works with modals or iframes
 - ⌨️ **Keyboard country selection** - fast and reliable
 - 🚫 **Rate limit detection** - auto-skips to next account
-- 📧 Uses free.priyo.email API for temporary emails
+- 📧 Uses mail.tm website for temporary emails
 - 🤖 Automated account creation on Wolt.com
 - 🔄 SMS verification resend (4 attempts per number)
 - 💾 Saves account details to file
@@ -28,8 +28,7 @@ Ultra-robust automated script to create Wolt accounts using Priyo temp mail API 
 pip install -r requirements.txt
 playwright install chromium
 
-# Create your files
-echo "your-api-key" > keys.txt
+# Create your phone numbers file
 echo "501234567" > numbers.txt
 
 # Run script
@@ -41,13 +40,7 @@ python wolt_creator.py
 
 ## Setup
 
-1. **Create `keys.txt`** with Priyo Email API keys (one per line):
-```
-7jkmE5NM2VS6GqJ9pzlI
-another-api-key
-```
-
-2. **Create `numbers.txt`** with Ukrainian phone numbers WITHOUT +380 prefix (one per line):
+1. **Create `numbers.txt`** with Ukrainian phone numbers WITHOUT +380 prefix (one per line):
 ```
 501234567
 502345678
@@ -78,10 +71,10 @@ How many workers do you need? (default 3): 5
 - No number is wasted or skipped!
 
 **For each phone number:**
-1. Gets random email from Priyo Email API
-2. Opens Wolt.com and clicks "Sign up"
+1. Opens mail.tm website to get temporary email
+2. Opens Wolt.com in separate page and clicks "Sign up"
 3. Enters email and waits for verification email
-4. Fetches verification link from email API (auto-retries)
+4. Switches to mail.tm page and checks inbox for verification link (auto-retries)
 5. Opens verification link and completes registration:
    - Country: Hungary
    - Random first name (9 chars)
@@ -114,7 +107,7 @@ SMS_RESEND_COUNT = 4         # SMS resend count
 
 Account details saved to `wolt_accounts.txt`:
 ```
-Email: example@priyomail.top | Password: abc123 | Name: Firstname Lastname | Phone: +380501234567 | Time: 45.2s
+Email: example@Mail.tm | Name: Firstname Lastname | Phone: +380501234567 | Time: 45.2s
 ```
 
 ## Error Handling (100% Robust)
@@ -141,6 +134,6 @@ Email: example@priyomail.top | Password: abc123 | Name: Firstname Lastname | Pho
 
 - Uses visible browsers for monitoring (set `headless=True` for background)
 - Average time: **30-40 seconds per account** (optimized!)
-- API keys rotated automatically
+- Each worker opens TWO browser pages (mail.tm + wolt.com)
 - Phone numbers must be 9 digits (no +380 prefix)
 - Rate limit error auto-detected and handled
