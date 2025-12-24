@@ -67,7 +67,7 @@ def dsb_registration_automation(email, password, iterations, runner_id, progress
 
     with sync_playwright() as playwright:
         try:
-            browser = playwright.chromium.launch(headless=True)
+            browser = playwright.chromium.launch(headless=False)
             context = browser.new_context()
             stealth_sync(context)
             page = context.new_page()
@@ -117,13 +117,36 @@ def dsb_registration_automation(email, password, iterations, runner_id, progress
 
             # Step 6: Click "Opret profil" button
             logger.info(f"{runner_id}: Clicking 'Opret profil' button...")
-            create_profile_button = page.locator('button[type="submit"]:has-text("Opret profil")')
-            create_profile_button.wait_for(state="visible", timeout=10000)
-            human_like_click(page, create_profile_button)
+            create_profile_button = page.locator('button[type="submit"].flex.items-center.justify-center:has-text("Opret profil")')
+            create_profile_button.wait_for(state="visible", timeout=15000)
+
+            # Wait for button to be enabled (not disabled)
+            logger.info(f"{runner_id}: Waiting for button to be enabled...")
+            time.sleep(2)
+
+            # Scroll button into view
+            create_profile_button.scroll_into_view_if_needed()
+            time.sleep(1)
+
+            # Try clicking the button multiple times if needed
+            click_success = False
+            for attempt in range(3):
+                try:
+                    logger.info(f"{runner_id}: Click attempt {attempt + 1}...")
+                    create_profile_button.click(force=True, timeout=5000)
+                    click_success = True
+                    logger.success(f"{runner_id}: Button clicked successfully!")
+                    break
+                except Exception as e:
+                    logger.warning(f"{runner_id}: Click attempt {attempt + 1} failed: {e}")
+                    time.sleep(2)
+
+            if not click_success:
+                raise Exception("Failed to click 'Opret profil' button after 3 attempts")
 
             # Wait for page to load
             logger.info(f"{runner_id}: Waiting for next page to load...")
-            time.sleep(5)
+            time.sleep(8)
 
             # Now start iterations with different phone numbers
             for iteration in range(iterations):
