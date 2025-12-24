@@ -14,6 +14,8 @@ file_lock = Lock()
 phone_numbers = []
 phone_index = 0
 phone_lock = Lock()
+completed_accounts = set()  # Track completed accounts to avoid duplicates
+completed_lock = Lock()
 
 
 def clear_console():
@@ -22,8 +24,34 @@ def clear_console():
 
 def savecreated(filename, message):
     workcard = filename + '.txt'
-    with open(workcard, "a", encoding="utf8") as file:
-        file.writelines(message + '\n')
+    with file_lock:
+        with open(workcard, "a", encoding="utf8") as file:
+            file.writelines(message + '\n')
+
+
+def save_completed_account(email, password):
+    """Save account to completed.txt only once"""
+    account_key = f"{email}:{password}"
+    with completed_lock:
+        if account_key not in completed_accounts:
+            completed_accounts.add(account_key)
+            savecreated('completed', account_key)
+            logger.success(f"Saved to completed.txt: {account_key}")
+
+
+def remove_account_from_file(account_data):
+    """Remove account from accounts.txt file"""
+    try:
+        with file_lock:
+            with open("accounts.txt", "r", encoding="utf8") as file:
+                lines = file.readlines()
+            with open("accounts.txt", "w", encoding="utf8") as file:
+                for line in lines:
+                    if line.strip() != account_data:
+                        file.write(line)
+            logger.info(f"Removed account from accounts.txt: {account_data.split(':')[0]}")
+    except Exception as e:
+        logger.error(f"Error removing account from file: {e}")
 
 
 def get_next_phone():
@@ -59,7 +87,7 @@ def human_like_click(page, locator):
         locator.click()
 
 
-def dsb_registration_automation(email, password, iterations, runner_id, progress_bar):
+def dsb_registration_automation(email, password, iterations, runner_id, progress_bar, account_data):
     """
     Automates DSB registration process with multiple phone number iterations
     """
@@ -74,46 +102,46 @@ def dsb_registration_automation(email, password, iterations, runner_id, progress
 
             logger.info(f"{runner_id}: Navigating to DSB registration page...")
             page.goto(url, wait_until="domcontentloaded")
-            time.sleep(3)
+            time.sleep(1)
 
             # Step 1: Handle cookie consent - Click "Afvis" (Decline)
             logger.info(f"{runner_id}: Handling cookie consent...")
             try:
                 decline_button = page.locator('button#declineButton.coi-banner__decline')
-                if decline_button.is_visible(timeout=5000):
+                if decline_button.is_visible(timeout=3000):
                     decline_button.click()
-                    time.sleep(2)
+                    time.sleep(0.5)
                     logger.success(f"{runner_id}: Declined cookies")
             except Exception as e:
-                logger.warning(f"{runner_id}: Cookie banner not found or already dismissed: {e}")
+                logger.warning(f"{runner_id}: Cookie banner not found or already dismissed")
 
             # Step 2: Enter email
             logger.info(f"{runner_id}: Entering email {email}...")
             email_input = page.locator('input[type="email"][data-testid="email-email-input"]')
-            email_input.wait_for(state="visible", timeout=15000)
+            email_input.wait_for(state="visible", timeout=10000)
             email_input.fill(email)
-            time.sleep(1)
+            time.sleep(0.3)
 
             # Step 3: Enter password
             logger.info(f"{runner_id}: Entering password...")
             password_input = page.locator('input[type="password"][data-testid="password-password-input"]')
             password_input.wait_for(state="visible", timeout=10000)
             password_input.fill(password)
-            time.sleep(1)
+            time.sleep(0.3)
 
             # Step 4: Enter password confirmation
             logger.info(f"{runner_id}: Confirming password...")
             confirm_password_input = page.locator('input[type="password"][data-testid="confirmPassword-password-input"]')
             confirm_password_input.wait_for(state="visible", timeout=10000)
             confirm_password_input.fill(password)
-            time.sleep(1)
+            time.sleep(0.3)
 
             # Step 5: Enter birthdate (11/11/2000)
             logger.info(f"{runner_id}: Entering birthdate...")
             birthdate_input = page.locator('input[type="date"][data-testid="birthdate-date-input"]')
             birthdate_input.wait_for(state="visible", timeout=10000)
-            birthdate_input.fill("2000-11-11")  # Date format: YYYY-MM-DD for HTML5 date input
-            time.sleep(1)
+            birthdate_input.fill("2000-11-11")
+            time.sleep(0.3)
 
             # Step 6: Click "Opret profil" button
             logger.info(f"{runner_id}: Clicking 'Opret profil' button...")
@@ -121,12 +149,11 @@ def dsb_registration_automation(email, password, iterations, runner_id, progress
             create_profile_button.wait_for(state="visible", timeout=15000)
 
             # Wait for button to be enabled (not disabled)
-            logger.info(f"{runner_id}: Waiting for button to be enabled...")
-            time.sleep(2)
+            time.sleep(0.5)
 
             # Scroll button into view
             create_profile_button.scroll_into_view_if_needed()
-            time.sleep(1)
+            time.sleep(0.3)
 
             # Try clicking the button multiple times if needed
             click_success = False
@@ -139,14 +166,31 @@ def dsb_registration_automation(email, password, iterations, runner_id, progress
                     break
                 except Exception as e:
                     logger.warning(f"{runner_id}: Click attempt {attempt + 1} failed: {e}")
-                    time.sleep(2)
+                    time.sleep(1)
 
             if not click_success:
                 raise Exception("Failed to click 'Opret profil' button after 3 attempts")
 
+            # Wait and check for error message (profile already exists)
+            logger.info(f"{runner_id}: Checking for errors...")
+            time.sleep(2)
+
+            try:
+                error_msg = page.locator('p.mt-4.text-sm.text-border-error:has-text("Der findes en profil med denne e-mail")')
+                if error_msg.is_visible(timeout=2000):
+                    logger.warning(f"{runner_id}: Account already exists! Marking as completed and moving to next account")
+                    save_completed_account(email, password)
+                    remove_account_from_file(account_data)
+                    browser.close()
+                    if progress_bar:
+                        progress_bar.update(1)
+                    return
+            except:
+                pass
+
             # Wait for page to load
             logger.info(f"{runner_id}: Waiting for next page to load...")
-            time.sleep(8)
+            time.sleep(3)
 
             # Now start iterations with different phone numbers
             for iteration in range(iterations):
@@ -162,9 +206,9 @@ def dsb_registration_automation(email, password, iterations, runner_id, progress
                 first_name = generate_random_name(8)
                 logger.info(f"{runner_id}: Entering first name: {first_name}")
                 first_name_input = page.locator('input#firstName[name="firstName"]')
-                first_name_input.wait_for(state="visible", timeout=15000)
+                first_name_input.wait_for(state="visible", timeout=10000)
                 first_name_input.fill(first_name)
-                time.sleep(1)
+                time.sleep(0.2)
 
                 # Step 8: Generate and enter last name (10 chars)
                 last_name = generate_random_name(10)
@@ -172,21 +216,21 @@ def dsb_registration_automation(email, password, iterations, runner_id, progress
                 last_name_input = page.locator('input#lastName[name="lastName"]')
                 last_name_input.wait_for(state="visible", timeout=10000)
                 last_name_input.fill(last_name)
-                time.sleep(1)
+                time.sleep(0.2)
 
                 # Step 9: Select Armenia (+374) from country code dropdown
                 logger.info(f"{runner_id}: Selecting Armenia (+374)...")
                 country_select = page.locator('select#country-code[name="countryCode"]')
                 country_select.wait_for(state="visible", timeout=10000)
                 country_select.select_option(value="+374")
-                time.sleep(1)
+                time.sleep(0.2)
 
                 # Step 10: Enter phone number
                 logger.info(f"{runner_id}: Entering phone number: {phone}")
                 phone_input = page.locator('input#phoneNumber[name="phoneNumber"]')
                 phone_input.wait_for(state="visible", timeout=10000)
                 phone_input.fill(phone)
-                time.sleep(1)
+                time.sleep(0.2)
 
                 # Step 11: Click "Næste" button
                 logger.info(f"{runner_id}: Clicking 'Næste' button...")
@@ -194,12 +238,11 @@ def dsb_registration_automation(email, password, iterations, runner_id, progress
                 next_button.wait_for(state="visible", timeout=15000)
 
                 # Wait for button to be enabled (not disabled)
-                logger.info(f"{runner_id}: Waiting for Næste button to be enabled...")
-                time.sleep(2)
+                time.sleep(0.5)
 
                 # Scroll button into view
                 next_button.scroll_into_view_if_needed()
-                time.sleep(1)
+                time.sleep(0.3)
 
                 # Try clicking the button multiple times if needed
                 click_success = False
@@ -212,26 +255,30 @@ def dsb_registration_automation(email, password, iterations, runner_id, progress
                         break
                     except Exception as e:
                         logger.warning(f"{runner_id}: Næste click attempt {attempt + 1} failed: {e}")
-                        time.sleep(2)
+                        time.sleep(1)
 
                 if not click_success:
                     raise Exception("Failed to click 'Næste' button after 3 attempts")
 
-                time.sleep(5)
+                time.sleep(2)
 
                 # Step 12: Wait for "Tilbage" button and click it
                 logger.info(f"{runner_id}: Waiting for 'Tilbage' button...")
                 tilbage_button = page.locator('a.flex.items-center[href="/auth/opret/personlig-information"]:has-text("Tilbage")')
                 tilbage_button.wait_for(state="visible", timeout=15000)
-                time.sleep(2)
+                time.sleep(0.5)
 
                 logger.info(f"{runner_id}: Clicking 'Tilbage' button...")
                 tilbage_button.click()
-                time.sleep(3)
+                time.sleep(1)
 
-                # Save progress for this iteration
-                savecreated('dsb_completed', f"{email}:{password}:{phone}:{first_name}:{last_name}")
                 logger.success(f"{runner_id}: Iteration {iteration + 1}/{iterations} completed with phone {phone}")
+
+            # Save account as completed ONCE after all iterations
+            save_completed_account(email, password)
+
+            # Remove account from accounts.txt
+            remove_account_from_file(account_data)
 
             logger.success(f"{runner_id}: All {iterations} iterations completed successfully for {email}!")
             browser.close()
@@ -257,7 +304,7 @@ def run_worker(index, account_data, iterations, progress_bar):
     email, password = account_data.split(':', 1)
 
     logger.info(f"{runner_id}: Starting automation for {email} with {iterations} iterations")
-    dsb_registration_automation(email, password, iterations, runner_id, progress_bar)
+    dsb_registration_automation(email, password, iterations, runner_id, progress_bar, account_data)
 
 
 if __name__ == "__main__":
