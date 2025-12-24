@@ -190,10 +190,34 @@ def dsb_registration_automation(email, password, iterations, runner_id, progress
 
                 # Step 11: Click "Næste" button
                 logger.info(f"{runner_id}: Clicking 'Næste' button...")
-                next_button = page.locator('button[type="submit"]:has-text("Næste")')
-                next_button.wait_for(state="visible", timeout=10000)
-                human_like_click(page, next_button)
-                time.sleep(3)
+                next_button = page.locator('button[type="submit"].flex.items-center.justify-center:has-text("Næste")')
+                next_button.wait_for(state="visible", timeout=15000)
+
+                # Wait for button to be enabled (not disabled)
+                logger.info(f"{runner_id}: Waiting for Næste button to be enabled...")
+                time.sleep(2)
+
+                # Scroll button into view
+                next_button.scroll_into_view_if_needed()
+                time.sleep(1)
+
+                # Try clicking the button multiple times if needed
+                click_success = False
+                for attempt in range(3):
+                    try:
+                        logger.info(f"{runner_id}: Næste button click attempt {attempt + 1}...")
+                        next_button.click(force=True, timeout=5000)
+                        click_success = True
+                        logger.success(f"{runner_id}: Næste button clicked successfully!")
+                        break
+                    except Exception as e:
+                        logger.warning(f"{runner_id}: Næste click attempt {attempt + 1} failed: {e}")
+                        time.sleep(2)
+
+                if not click_success:
+                    raise Exception("Failed to click 'Næste' button after 3 attempts")
+
+                time.sleep(5)
 
                 # Step 12: Wait for "Tilbage" button and click it
                 logger.info(f"{runner_id}: Waiting for 'Tilbage' button...")
