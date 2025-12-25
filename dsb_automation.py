@@ -74,17 +74,46 @@ def generate_random_name(length):
     return first_letter + rest_letters
 
 
+def human_like_type(page, locator, text):
+    """Type text like a human with random delays"""
+    locator.click()
+    time.sleep(random.uniform(0.1, 0.3))
+    for char in text:
+        locator.type(char, delay=random.randint(50, 150))  # 50-150ms per character
+    time.sleep(random.uniform(0.2, 0.4))
+
+
+def random_mouse_movement(page):
+    """Perform random mouse movements to simulate human behavior"""
+    for _ in range(random.randint(1, 3)):
+        x = random.randint(100, 800)
+        y = random.randint(100, 600)
+        page.mouse.move(x, y, steps=random.randint(5, 15))
+        time.sleep(random.uniform(0.1, 0.3))
+
+
 def human_like_click(page, locator):
     """Simulate human-like click with mouse movement and delays"""
+    # Small random movement before clicking
+    random_mouse_movement(page)
+
     box = locator.bounding_box()
     if box:
         x = box['x'] + box['width'] * random.uniform(0.3, 0.7)
         y = box['y'] + box['height'] * random.uniform(0.3, 0.7)
-        page.mouse.move(x, y)
-        time.sleep(random.uniform(0.1, 0.3))
+        page.mouse.move(x, y, steps=random.randint(10, 20))
+        time.sleep(random.uniform(0.2, 0.5))
         page.mouse.click(x, y)
     else:
         locator.click()
+    time.sleep(random.uniform(0.3, 0.6))
+
+
+def random_scroll(page):
+    """Perform random scrolling to simulate human reading"""
+    scroll_amount = random.randint(100, 400)
+    page.mouse.wheel(0, scroll_amount)
+    time.sleep(random.uniform(0.3, 0.7))
 
 
 def dsb_registration_automation(email, password, iterations, runner_id, progress_bar, account_data):
@@ -95,22 +124,48 @@ def dsb_registration_automation(email, password, iterations, runner_id, progress
 
     with sync_playwright() as playwright:
         try:
+            # Random viewport sizes to appear more human
+            viewports = [
+                {'width': 1920, 'height': 1080},
+                {'width': 1366, 'height': 768},
+                {'width': 1536, 'height': 864},
+                {'width': 1440, 'height': 900},
+            ]
+            viewport = random.choice(viewports)
+
+            # Random user agents
+            user_agents = [
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+                'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0',
+            ]
+            user_agent = random.choice(user_agents)
+
             browser = playwright.chromium.launch(headless=False)
-            context = browser.new_context()
+            context = browser.new_context(
+                viewport=viewport,
+                user_agent=user_agent,
+                locale='da-DK',  # Danish locale
+                timezone_id='Europe/Copenhagen',
+            )
             stealth_sync(context)
             page = context.new_page()
 
             logger.info(f"{runner_id}: Navigating to DSB registration page...")
             page.goto(url, wait_until="domcontentloaded")
-            time.sleep(1)
+            time.sleep(random.uniform(1.5, 2.5))  # Random delay after page load
+
+            # Random scroll to simulate reading
+            random_scroll(page)
 
             # Step 1: Handle cookie consent - Click "Afvis" (Decline)
             logger.info(f"{runner_id}: Handling cookie consent...")
             try:
                 decline_button = page.locator('button#declineButton.coi-banner__decline')
                 if decline_button.is_visible(timeout=3000):
-                    decline_button.click()
-                    time.sleep(0.5)
+                    time.sleep(random.uniform(0.5, 1.0))
+                    human_like_click(page, decline_button)
                     logger.success(f"{runner_id}: Declined cookies")
             except Exception as e:
                 logger.warning(f"{runner_id}: Cookie banner not found or already dismissed")
@@ -119,54 +174,57 @@ def dsb_registration_automation(email, password, iterations, runner_id, progress
             logger.info(f"{runner_id}: Entering email {email}...")
             email_input = page.locator('input[type="email"][data-testid="email-email-input"]')
             email_input.wait_for(state="visible", timeout=10000)
-            email_input.fill(email)
-            time.sleep(0.3)
+            human_like_type(page, email_input, email)
+            time.sleep(random.uniform(0.3, 0.6))
 
             # Step 3: Enter password
             logger.info(f"{runner_id}: Entering password...")
             password_input = page.locator('input[type="password"][data-testid="password-password-input"]')
             password_input.wait_for(state="visible", timeout=10000)
-            password_input.fill(password)
-            time.sleep(0.3)
+            human_like_type(page, password_input, password)
+            time.sleep(random.uniform(0.3, 0.6))
 
             # Step 4: Enter password confirmation
             logger.info(f"{runner_id}: Confirming password...")
             confirm_password_input = page.locator('input[type="password"][data-testid="confirmPassword-password-input"]')
             confirm_password_input.wait_for(state="visible", timeout=10000)
-            confirm_password_input.fill(password)
-            time.sleep(0.3)
+            human_like_type(page, confirm_password_input, password)
+            time.sleep(random.uniform(0.3, 0.6))
 
             # Step 5: Enter birthdate (11/11/2000)
             logger.info(f"{runner_id}: Entering birthdate...")
             birthdate_input = page.locator('input[type="date"][data-testid="birthdate-date-input"]')
             birthdate_input.wait_for(state="visible", timeout=10000)
-            birthdate_input.fill("2000-11-11")
-            time.sleep(0.3)
+            birthdate_input.click()
+            time.sleep(random.uniform(0.2, 0.4))
+            birthdate_input.fill("2000-11-11")  # Date picker works better with fill
+            time.sleep(random.uniform(0.4, 0.7))
 
             # Step 6: Click "Opret profil" button
             logger.info(f"{runner_id}: Clicking 'Opret profil' button...")
             create_profile_button = page.locator('button[type="submit"].flex.items-center.justify-center:has-text("Opret profil")')
             create_profile_button.wait_for(state="visible", timeout=15000)
 
-            # Wait for button to be enabled (not disabled)
-            time.sleep(0.5)
+            # Random scroll before clicking
+            random_scroll(page)
+            time.sleep(random.uniform(0.5, 1.0))
 
             # Scroll button into view
             create_profile_button.scroll_into_view_if_needed()
-            time.sleep(0.3)
+            time.sleep(random.uniform(0.4, 0.8))
 
             # Try clicking the button multiple times if needed
             click_success = False
             for attempt in range(3):
                 try:
                     logger.info(f"{runner_id}: Click attempt {attempt + 1}...")
-                    create_profile_button.click(force=True, timeout=5000)
+                    human_like_click(page, create_profile_button)
                     click_success = True
                     logger.success(f"{runner_id}: Button clicked successfully!")
                     break
                 except Exception as e:
                     logger.warning(f"{runner_id}: Click attempt {attempt + 1} failed: {e}")
-                    time.sleep(1)
+                    time.sleep(random.uniform(1.0, 2.0))
 
             if not click_success:
                 raise Exception("Failed to click 'Opret profil' button after 3 attempts")
@@ -207,70 +265,73 @@ def dsb_registration_automation(email, password, iterations, runner_id, progress
                 logger.info(f"{runner_id}: Entering first name: {first_name}")
                 first_name_input = page.locator('input#firstName[name="firstName"]')
                 first_name_input.wait_for(state="visible", timeout=10000)
-                first_name_input.fill(first_name)
-                time.sleep(0.2)
+                human_like_type(page, first_name_input, first_name)
+                time.sleep(random.uniform(0.3, 0.5))
 
                 # Step 8: Generate and enter last name (10 chars)
                 last_name = generate_random_name(10)
                 logger.info(f"{runner_id}: Entering last name: {last_name}")
                 last_name_input = page.locator('input#lastName[name="lastName"]')
                 last_name_input.wait_for(state="visible", timeout=10000)
-                last_name_input.fill(last_name)
-                time.sleep(0.2)
+                human_like_type(page, last_name_input, last_name)
+                time.sleep(random.uniform(0.3, 0.5))
 
                 # Step 9: Select Armenia (+374) from country code dropdown
                 logger.info(f"{runner_id}: Selecting Armenia (+374)...")
                 country_select = page.locator('select#country-code[name="countryCode"]')
                 country_select.wait_for(state="visible", timeout=10000)
+                country_select.click()
+                time.sleep(random.uniform(0.2, 0.4))
                 country_select.select_option(value="+374")
-                time.sleep(0.2)
+                time.sleep(random.uniform(0.3, 0.5))
 
                 # Step 10: Enter phone number
                 logger.info(f"{runner_id}: Entering phone number: {phone}")
                 phone_input = page.locator('input#phoneNumber[name="phoneNumber"]')
                 phone_input.wait_for(state="visible", timeout=10000)
-                phone_input.fill(phone)
-                time.sleep(0.2)
+                human_like_type(page, phone_input, phone)
+                time.sleep(random.uniform(0.3, 0.5))
 
                 # Step 11: Click "Næste" button
                 logger.info(f"{runner_id}: Clicking 'Næste' button...")
                 next_button = page.locator('button[type="submit"].flex.items-center.justify-center:has-text("Næste")')
                 next_button.wait_for(state="visible", timeout=15000)
 
-                # Wait for button to be enabled (not disabled)
-                time.sleep(0.5)
+                # Random scroll before clicking
+                random_scroll(page)
+                time.sleep(random.uniform(0.4, 0.8))
 
                 # Scroll button into view
                 next_button.scroll_into_view_if_needed()
-                time.sleep(0.3)
+                time.sleep(random.uniform(0.3, 0.6))
 
                 # Try clicking the button multiple times if needed
                 click_success = False
                 for attempt in range(3):
                     try:
                         logger.info(f"{runner_id}: Næste button click attempt {attempt + 1}...")
-                        next_button.click(force=True, timeout=5000)
+                        human_like_click(page, next_button)
                         click_success = True
                         logger.success(f"{runner_id}: Næste button clicked successfully!")
                         break
                     except Exception as e:
                         logger.warning(f"{runner_id}: Næste click attempt {attempt + 1} failed: {e}")
-                        time.sleep(1)
+                        time.sleep(random.uniform(1.0, 2.0))
 
                 if not click_success:
                     raise Exception("Failed to click 'Næste' button after 3 attempts")
 
-                time.sleep(2)
+                time.sleep(random.uniform(1.5, 2.5))
 
                 # Step 12: Wait for "Tilbage" button and click it
                 logger.info(f"{runner_id}: Waiting for 'Tilbage' button...")
                 tilbage_button = page.locator('a.flex.items-center[href="/auth/opret/personlig-information"]:has-text("Tilbage")')
                 tilbage_button.wait_for(state="visible", timeout=15000)
-                time.sleep(0.5)
+                time.sleep(random.uniform(0.5, 1.0))
 
                 logger.info(f"{runner_id}: Clicking 'Tilbage' button...")
-                tilbage_button.click()
-                time.sleep(1)
+                human_like_click(page, tilbage_button)
+                time.sleep(random.uniform(1.0, 1.5))
 
                 logger.success(f"{runner_id}: Iteration {iteration + 1}/{iterations} completed with phone {phone}")
 
