@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="helpdesk_ticket_view_form_product_section" model="ir.ui.view">
+        <field name="name">helpdesk.ticket.form.product.section</field>
+        <field name="model">helpdesk.ticket</field>
+        <field name="inherit_id" ref="helpdesk.helpdesk_ticket_view_form"/>
+        <field name="priority" eval="50"/>
+        <field name="arch" type="xml">
+
+            <xpath expr="//field[@name='partner_id']" position="after">
+                <field name="sale_order_id" readonly="1" optional="show"/>
+            </xpath>
+
+            <xpath expr="//notebook/page[1]" position="before">
+                <page string="Product" name="product_lines_page">
+                    <field name="has_unprocessed_checked" invisible="1"/>
+
+                    <div class="d-flex justify-content-end mb-2">
+                        <button name="action_create_receipt"
+                                string="Receipt"
+                                type="object"
+                                class="btn-primary"
+                                invisible="not has_unprocessed_checked"/>
+                    </div>
+
+                    <field name="ticket_product_line_ids">
+                        <tree editable="bottom">
+                            <field name="receipt_done" column_invisible="1"/>
+                            <field name="is_checked"
+                                   widget="boolean"
+                                   readonly="receipt_done"/>
+                            <field name="product_id"/>
+                            <field name="uom_id"/>
+                            <field name="demand"/>
+                            <field name="quantity"/>
+                            <field name="color"/>
+                            <field name="shipping_notes"/>
+                        </tree>
+                        <form>
+                            <group>
+                                <field name="receipt_done" invisible="1"/>
+                                <field name="is_checked" readonly="receipt_done"/>
+                                <field name="product_id"/>
+                                <field name="uom_id"/>
+                                <field name="demand"/>
+                                <field name="quantity"/>
+                                <field name="color"/>
+                                <field name="shipping_notes"/>
+                            </group>
+                        </form>
+                    </field>
+
+                    <group string="SHIPPING INFO">
+                        <field name="policy_number" string="رقم البوليصة"/>
+                        <field name="shipping_policy_company" string="Shipping Policy Company"/>
+                        <field name="smsa_url"
+                               string="SMSA URL"
+                               widget="CopyClipboardURL"
+                               style="width: 300px;"
+                               invisible="shipping_policy_company != 'smsa'"/>
+                        <field name="aramex_url"
+                               string="Aramex URL"
+                               widget="CopyClipboardURL"
+                               style="width: 300px;"
+                               invisible="shipping_policy_company != 'aramex'"/>
+                        <field name="label_file" string="Label File" widget="binary" filename="label_file_name"/>
+                        <field name="label_file_name" invisible="1"/>
+                        <field name="file_link"
+                               string="File Link"
+                               readonly="1"
+                               widget="CopyClipboardURL"
+                               style="width: 300px;"/>
+                        <field name="product_condition" string="Product Condition"/>
+                        <field name="damage_description" string="Damage / Issue Description" widget="text"/>
+                    </group>
+                </page>
+            </xpath>
+
+        </field>
+    </record>
+
+</odoo>

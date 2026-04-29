@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    PRODUCTION-ONLY VIEW
+    ====================
+    This view hides the Studio-generated field x_is_order_fully_returned.
+    The field only exists on the production database (added by Odoo Studio).
+
+    Loading this file on a vanilla Odoo 17 install will raise:
+        ValidationError: Field "x_is_order_fully_returned" does not exist
+
+    To activate on production, uncomment the corresponding entry in
+    __manifest__.py 'data' list, then upgrade the module.
+-->
+<odoo>
+
+    <record id="helpdesk_ticket_view_form_studio_hide" model="ir.ui.view">
+        <field name="name">helpdesk.ticket.form.studio.hide</field>
+        <field name="model">helpdesk.ticket</field>
+        <field name="inherit_id" ref="helpdesk.helpdesk_ticket_view_form"/>
+        <field name="priority" eval="50"/>
+        <field name="arch" type="xml">
+
+            <xpath expr="//field[@name='x_is_order_fully_returned']"
+                   position="attributes">
+                <attribute name="invisible">1</attribute>
+                <attribute name="optional">hide</attribute>
+            </xpath>
+
+        </field>
+    </record>
+
+</odoo>
